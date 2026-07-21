@@ -13,6 +13,7 @@ against their text and whose nominated spring panel absorbs all the slack.
 
 - **No child controls** — the control window *is* the panel. Every item is drawn in its own
   `WM_PAINT`.
+- **Static by contract**: items are built once and never inserted, deleted or moved.
 - **Nothing is measured.** Cell widths are declared, so — alone in the family — the layout
   never takes a DC. The font is a paint-time input only.
 - **Three item kinds**: latching `TOGGLE`, momentary `COMMAND`, and a `SEPARATOR` rule the
@@ -51,6 +52,7 @@ fbc64.exe -i "C:\dev" main.bas
 
 ```freebasic
 ' Create, then position it like any window. It has no opinion about its own placement.
+' Build the items once; from then on you drive them with the state setters.
 dim as HWND hPanel = CIconPanel_Create( hWndParent, IDC_MYICONPANEL )
 
 CIconPanel_SetFont( hPanel, hSegoeFluentIconsFont )    ' you keep ownership
@@ -114,6 +116,22 @@ rcIcon(i)    = iconW x iconH, centred in rc both ways
 - Layout is **lazy**: mutators mark it dirty and the next paint (or any rect query) runs it,
   so a burst of `AddItem` calls costs one pass. `GetIdealWidth` is valid *before* the panel
   has ever been sized — the run's width doesn't depend on the client area.
+
+## Static by contract
+
+Items are added once, at construction. There is no `InsertItem`, no `DeleteItem` and no
+`Clear` — the API's shape enforces it rather than a comment asking nicely.
+
+What that buys: none of the stored-index fix-up code the dynamic siblings need (three
+separate sites in `CTabBar.bi` alone, and the family's most repeated bug class), because
+`nLastHotIdx` and `nPressedIdx` cannot go stale. Everything a host does at runtime —
+`SetSelected`, `SetEnabled`, `SetGlyph`, `SetItemForeColor` — addresses an item that is
+still exactly where it was, and a callback firing mid-gesture cannot pull the pressed item
+out from under the press.
+
+Build the panel once, then drive it with the state setters. Cell widths are declared rather
+than measured, so nothing moves at runtime either; only the justification moves items, and
+only as one block.
 
 ## Colors and the built-in painter
 
@@ -180,6 +198,7 @@ would be swallowed — and a toolbar has no double-click semantic to gain in exc
 
 ## Not implemented, deliberately
 
+- **Insert / delete / clear items.** See the static contract above.
 - **Vertical orientation.** Horizontal only. A vertical sibling gets split out the day a
   second consumer needs one (the CVScrollBar / CHScrollBar precedent), not before.
 - **Text labels.** Icons only; the glyph is whatever string you hand it, drawn centred in

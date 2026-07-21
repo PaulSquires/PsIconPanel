@@ -176,15 +176,20 @@ type CICONPANEL
     itemCount         as long = 0
     idc_IconPanel     as long = 0
     HoverTime         as long = 250
+    ' Two single-valued indices. Because the item set is STATIC -- items are added once and
+    ' never inserted, deleted or moved -- neither can ever be left dangling by a mutation,
+    ' so this control carries none of the index fix-up code the dynamic siblings need
+    ' (three separate sites in CTabBar.bi alone, and the family's most repeated bug class).
     nLastHotIdx       as long = -1       ' item the mouse was last over (hover tracking)
     hotTimerOn        as boolean = false ' is the hot-tracking safety-net timer running?
     ' --- Press state (mouse capture). The control TAKES capture on a press -- unlike
     '     CStatusBar, and deliberately: the press/cancel gesture (press an icon, slide
     '     off, release, nothing happens) consumes the guaranteed down->up pairing, which
     '     is the family's test for taking capture. It pays CVScrollBar's full price:
-    '     release on the up-message unconditionally, WM_CAPTURECHANGED cancels the press,
-    '     WM_DESTROY releases, and no callback may suppress an up-message. Any item
-    '     mutation cancels a live press -- the gesture's target is gone.
+    '     snapshot the pressed index BEFORE releasing (ReleaseCapture sends
+    '     WM_CAPTURECHANGED synchronously -- Learnings.md), release on the up-message
+    '     before any callback runs, WM_CAPTURECHANGED cancels the press, WM_DESTROY
+    '     releases, and no callback may suppress an up-message.
     '     There is no bPressedInside flag: "the cursor is still on the pressed item" is
     '     exactly (nLastHotIdx = nPressedIdx), and hover tracking already maintains that
     '     through the capture (moves outside the client report -1). ---
@@ -214,14 +219,11 @@ type CICONPANEL
 
     declare sub      LayoutItems()
     declare function GetCount() as long                                     ' item count
-    declare function InsertItemAt( byval idx as long ) as CICONPANEL_ITEM ptr
     declare function AddItem() as CICONPANEL_ITEM ptr                       ' append
     declare function GetItem( byval idx as long ) as CICONPANEL_ITEM ptr
-    declare function DeleteItemAt( byval idx as long ) as boolean
     declare function IsValidItem( byval idx as long ) as boolean
     declare function HitTest( byval x as long, byval y as long ) as long
     declare sub      CancelPress()
-    declare sub      Clear()
     declare sub      Refresh()
 end type
 
@@ -358,22 +360,19 @@ function CICONPANEL.HitTest( byval x as long, byval y as long ) as long
     return -1
 end function
 
-' Insert a fresh (reset) item at idx, shifting later items right. Grows the backing store
-' by doubling so bulk inserts are amortized O(1), not O(n^2).
-function CICONPANEL.InsertItemAt( byval idx as long ) as CICONPANEL_ITEM ptr
-    if idx < 0 then idx = 0
-    if idx > this.itemCount then idx = this.itemCount
-
+' Append a fresh (reset) item. Grows the backing store by doubling so building a panel is
+' amortized O(1), not O(n^2).
+'
+' There is NO InsertItemAt and NO DeleteItemAt, deliberately -- the item set is static. See
+' the type's index comment for what that buys.
+function CICONPANEL.AddItem() as CICONPANEL_ITEM ptr
     dim as long cap = ubound(this.items) + 1
     if this.itemCount >= cap then
         dim as long newcap = iif( cap = 0, 16, cap * 2 )
         redim preserve this.items( 0 to newcap - 1 )
     end if
 
-    ' shift [idx .. itemCount-1] right by one (no-op when appending)
-    for i as long = this.itemCount to idx + 1 step -1
-        this.items(i) = this.items(i - 1)
-    next
+    dim as long idx = this.itemCount
 
     ' reset the new slot (frees any DWSTRING left in a recycled capacity slot)
     with this.items(idx)
@@ -396,59 +395,16 @@ function CICONPANEL.InsertItemAt( byval idx as long ) as CICONPANEL_ITEM ptr
     end with
 
     this.itemCount += 1
-    ' Stored indices follow the shift.
-    if idx <= this.nLastHotIdx then this.nLastHotIdx += 1
-    ' A mutation mid-press invalidates the gesture: the pressed slot no longer means what
-    ' the finger meant.
-    this.CancelPress()
     this.Refresh()
     return @this.items(idx)
 end function
 
-function CICONPANEL.AddItem() as CICONPANEL_ITEM ptr
-    return this.InsertItemAt( this.itemCount )
-end function
-
-function CICONPANEL.DeleteItemAt( byval idx as long ) as boolean
-    if this.IsValidItem(idx) = false then return false
-    ' shift [idx+1 .. itemCount-1] down by one
-    for i as long = idx to this.itemCount - 2
-        this.items(i) = this.items(i + 1)
-    next
-    with this.items(this.itemCount - 1)     ' free the vacated last slot's strings
-        .wszGlyph   = ""
-        .wszTooltip = ""
-    end with
-    this.itemCount -= 1
-    ' Stored index follows the shift; deleting the hot item itself clears hover.
-    if idx = this.nLastHotIdx then
-        this.nLastHotIdx = -1
-    elseif idx < this.nLastHotIdx then
-        this.nLastHotIdx -= 1
-    end if
-    if this.nLastHotIdx >= this.itemCount then this.nLastHotIdx = -1
-    this.CancelPress()
-    this.Refresh()
-    return true
-end function
-
-' Forget any live press WITHOUT touching the capture. Called from every mutator (the
-' gesture's target moved or vanished) and from the capture-loss path. Releasing capture is
-' the WndProc's job, and only on the up-message or WM_DESTROY -- doing it here would let a
-' mutation inside a callback strand or double-release it.
+' Forget any live press WITHOUT touching the capture. Called from the capture-loss path and
+' from SetEnabled when the pressed item is disabled out from under the gesture. Releasing
+' capture is the WndProc's job, and only on the up-message or WM_DESTROY -- doing it here
+' would let a callback strand or double-release it.
 sub CICONPANEL.CancelPress()
     this.nPressedIdx = -1
-end sub
-
-sub CICONPANEL.Clear()
-    for i as long = 0 to this.itemCount - 1
-        this.items(i).wszGlyph   = ""
-        this.items(i).wszTooltip = ""
-    next
-    this.itemCount   = 0
-    this.nLastHotIdx = -1
-    this.CancelPress()
-    this.Refresh()
 end sub
 
 ' Mark the layout stale and request a repaint. Every mutator routes through here, which is
@@ -475,6 +431,17 @@ end sub
 '   That is the difference from CStatusBar, whose panels measure themselves against their
 '   text and whose nominated spring panel absorbs all slack.
 '
+' STATIC BY CONTRACT
+'   Items are added once, at construction, and are never inserted, deleted or moved
+'   afterwards -- which is why there is no InsertItem, no DeleteItem and no Clear. Their
+'   widths are declared rather than measured, so they do not move at runtime either; only
+'   the justification moves them, and only as one block.
+'
+'   What that buys: none of the stored-index fix-up code the dynamic siblings carry, because
+'   nLastHotIdx and nPressedIdx cannot go stale. Everything a host does at runtime --
+'   toggling, enabling, recolouring, swapping a glyph -- addresses an item that is still
+'   exactly where it was.
+'
 ' THE CONTROL HANDLE
 '   Every CIconPanel_* function takes the handle returned by CIconPanel_Create().
 '
@@ -497,15 +464,16 @@ end sub
 declare function CIconPanel_Create( byval hWndParent as HWND, byval CtrlID as long ) as HWND
 
 ' ----------------------------------------------------------------------------------------
-' Adding / removing items.  Add* and Insert* return the new item's index, or -1.
+' Building the panel.  Add* return the new item's index, or -1.
 '   AddItem's kind is IP_KIND_TOGGLE or IP_KIND_COMMAND; AddSeparator adds the third kind
 '   (which has no glyph, no id and no click behaviour of its own).
+'
+'   These are the ONLY way items come into existence, and there is no way to take one out
+'   again -- the static contract above. Build the panel once, then drive it with the state
+'   setters (SetSelected, SetEnabled, SetGlyph, SetItemForeColor).
 ' ----------------------------------------------------------------------------------------
 declare function CIconPanel_AddItem( byval hIconPanel as HWND, byval itemKind as long, byval Glyph as DWSTRING, byval id as long = 0, byval itemData as integer = 0 ) as long
-declare function CIconPanel_InsertItem( byval hIconPanel as HWND, byval idx as long, byval itemKind as long, byval Glyph as DWSTRING, byval id as long = 0, byval itemData as integer = 0 ) as long
 declare function CIconPanel_AddSeparator( byval hIconPanel as HWND ) as long
-declare function CIconPanel_DeleteItem( byval hIconPanel as HWND, byval idx as long ) as boolean
-declare sub      CIconPanel_Clear( byval hIconPanel as HWND )
 declare sub      CIconPanel_Refresh( byval hIconPanel as HWND )
 
 ' ----------------------------------------------------------------------------------------

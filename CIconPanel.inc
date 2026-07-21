@@ -68,26 +68,6 @@ end function
 
 
 ' ========================================================================================
-' Insert an item at the given index (existing items shift right). Returns the actual index
-' used (clamped to [0, count]), or -1 on failure.
-' ========================================================================================
-function CIconPanel_InsertItem( byval hIconPanel as HWND, byval idx as long, byval itemKind as long, byval Glyph as DWSTRING, byval id as long = 0, byval itemData as integer = 0 ) as long
-    dim as CICONPANEL ptr pIcon = GetIconPanelPointer(hIconPanel)
-    if pIcon = null then return -1
-    dim as long at = idx
-    if at < 0 then at = 0
-    if at > pIcon->GetCount() then at = pIcon->GetCount()
-    dim as CICONPANEL_ITEM ptr pItem = pIcon->InsertItemAt( at )
-    if pItem = null then return -1
-    pItem->itemKind = itemKind
-    pItem->wszGlyph = Glyph
-    pItem->id       = id
-    pItem->itemData = itemData
-    return at
-end function
-
-
-' ========================================================================================
 ' Append a separator: a vertical rule as tall as an icon, drawn by the control itself.
 ' Give it its own padding (CIconPanel_SetItemPadding) to control the size of the visual
 ' gap it makes.
@@ -95,26 +75,6 @@ end function
 function CIconPanel_AddSeparator( byval hIconPanel as HWND ) as long
     return CIconPanel_AddItem( hIconPanel, IP_KIND_SEPARATOR, "", 0, 0 )
 end function
-
-
-' ========================================================================================
-' Delete the item at the given index. Returns TRUE on success.
-' ========================================================================================
-function CIconPanel_DeleteItem( byval hIconPanel as HWND, byval idx as long ) as boolean
-    dim as CICONPANEL ptr pIcon = GetIconPanelPointer(hIconPanel)
-    if pIcon = null then return false
-    return pIcon->DeleteItemAt( idx )
-end function
-
-
-' ========================================================================================
-' Remove all items from the control.
-' ========================================================================================
-sub CIconPanel_Clear( byval hIconPanel as HWND )
-    dim as CICONPANEL ptr pIcon = GetIconPanelPointer(hIconPanel)
-    if pIcon = null then return
-    pIcon->Clear()
-end sub
 
 
 ' ========================================================================================
@@ -958,7 +918,9 @@ function CIconPanel_WndProc( _
             ' release = nothing happened, which is the whole reason for the capture.
             if (idxPressed <> -1) andalso (idx = idxPressed) then
                 dim as CICONPANEL_ITEM ptr pItem = pIcon->GetItem( idxPressed )
-                ' A callback may have mutated the model mid-gesture; re-check everything.
+                ' The item set is static, so this pointer cannot have been invalidated by
+                ' an insert or delete inside a callback -- but a callback CAN still have
+                ' disabled the item mid-gesture, so that is re-checked below.
                 if pItem <> null then
                     if pItem->isEnabled then
                         select case pItem->itemKind

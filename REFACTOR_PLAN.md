@@ -35,6 +35,9 @@ paint-time input: `SetFont` repaints but does not re-lay-out, and `SetGlyph` inv
 one item rather than dirtying the layout. The cost is that an oversized font clips instead
 of growing its cell — correct here, since a fixed grid is the whole point.
 
+**Static item set** (adopted 2026-07-21, after CSelectBar — see *The static refactor* below).
+Items are added once and never inserted, deleted or moved.
+
 **Multi-select toggles, not a current item.** `CTabBar` owns one `nCurSel`; this control
 owns a set of independent switches, so `isSelected` lives on the item. Contrast `isHot`,
 which stays single-valued on the control (`nLastHotIdx`) exactly as everywhere else in the
@@ -54,9 +57,9 @@ as a group boundary, and giving it a kind keeps it out of `FindItemByID`'s resul
 **Capture: yes.** The family's stated test is "does something consume the guaranteed
 `WM_LBUTTONDOWN` → `WM_LBUTTONUP` pairing?" Here something does: the press/cancel gesture.
 Press an icon, slide off, release — nothing fires. Knowing the press is still live while
-the cursor is elsewhere is exactly what capture buys. The full price is paid: release on
-the up-message before any callback runs, callback result ignored for the up-message,
-`WM_CAPTURECHANGED` cancels, `WM_DESTROY` releases, every mutator cancels a live press.
+the cursor is elsewhere is exactly what capture buys. The full price is paid: snapshot the
+pressed index before releasing, release on the up-message before any callback runs, callback
+result ignored for the up-message, `WM_CAPTURECHANGED` cancels, `WM_DESTROY` releases.
 
 **No `bPressedInside` flag.** "The cursor is still on the pressed item" is exactly
 `nLastHotIdx = nPressedIdx`, and hover tracking already maintains that through the capture
@@ -85,6 +88,36 @@ Two mattered:
    arrives as `WM_LBUTTONDBLCLK` rather than `WM_LBUTTONDOWN`, so every other click on a
    toggle would be swallowed — and a toolbar has no double-click semantic to gain in
    exchange. It is deliberately absent, and the code says so.
+
+## The static refactor (2026-07-21)
+
+Building **CSelectBar** a day later made the point retroactively: that control was static
+from the start, and the absence of insert/delete turned out to remove not just two entry
+points but a whole category of code. CIconPanel had the same real usage — a toolbar's
+buttons are decided at construction and then merely toggled, enabled and recoloured — while
+still carrying the dynamic machinery. So it was brought into line.
+
+Removed: `CIconPanel_InsertItem`, `CIconPanel_DeleteItem`, `CIconPanel_Clear`, and the type's
+`InsertItemAt` / `DeleteItemAt` / `Clear`. `AddItem` became a plain append instead of
+`InsertItemAt(itemCount)`.
+
+What went with them, and is the actual point of the change:
+
+- **The stored-index fix-up code.** Insert shifted `nLastHotIdx` up; delete shifted it down,
+  or cleared it when the hot item was the one deleted, then re-clamped it against the new
+  count. That pattern is the family's most repeated bug class (three separate sites in
+  `CTabBar.bi`), and it is now absent rather than merely correct.
+- **"Any item mutation cancels a live press."** Both mutators called `CancelPress` because a
+  shifted or vanished item made the pressed index meaningless mid-gesture. With a static
+  set the pressed index cannot go stale, so `CancelPress` survives only where it is
+  genuinely needed: capture loss, and `SetEnabled` disabling the pressed item.
+- **A dangling-pointer hazard in `WM_LBUTTONUP`.** The re-check there was guarding against a
+  callback deleting items mid-gesture. It now guards only against a callback *disabling* the
+  item, which is the one thing still possible — and the comment says so, rather than
+  implying a risk that no longer exists.
+
+Nothing in the demo harness used the removed functions, so the change is API-narrowing only.
+The panel's behaviour is unchanged; this is a subtraction, not a redesign.
 
 ## Bugs found during the build
 
