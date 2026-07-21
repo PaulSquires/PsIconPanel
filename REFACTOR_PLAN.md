@@ -113,13 +113,11 @@ the bail-out sits between it and the placement pass.
 - Traced strings were built as `dim as string` first — `print` on a `DWSTRING`, or on a
   `string & wstring` concat, interleaves nulls (`../Learnings.md`).
 
-## Not verified by the author of the code
-
-The interactive pass belongs to the human: pixel appearance, hover, the press/cancel
-gesture, capture behaviour, tooltip timing, and rapid double-clicking a toggle (the
-`CS_DBLCLKS` decision above). Synthetic input was deliberately not used — `SendMessage`-
-simulated clicks cannot reproduce capture, which is precisely the path under test
-(`../Learnings.md`, *Verifying GUI work without a debugger*).
+**Interactive pass: PASSED** (author, 2026-07-21) — pixel appearance, hover, the
+press/cancel gesture, capture behaviour, tooltip timing, and rapid clicking of a toggle
+(the `CS_DBLCLKS` decision above). Synthetic input was deliberately not used to stand in
+for it: `SendMessage`-simulated clicks cannot reproduce capture, which is precisely the
+path most worth testing (`../Learnings.md`, *Verifying GUI work without a debugger*).
 
 ## Possible future work
 
