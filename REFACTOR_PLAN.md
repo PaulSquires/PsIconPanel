@@ -119,6 +119,13 @@ What went with them, and is the actual point of the change:
 Nothing in the demo harness used the removed functions, so the change is API-narrowing only.
 The panel's behaviour is unchanged; this is a subtraction, not a redesign.
 
+**One deliberate asymmetry with CSelectBar: it keeps `Clear`, this control does not.** Not
+an oversight and not worth harmonising. A select bar's labels are the sort of thing a host
+re-localises or rebuilds wholesale, so it keeps one escape hatch for exactly that; an icon
+panel's glyphs are fixed at construction and a host that wants a different set wants a
+different panel. Both remain static in the sense that matters — no insert, no delete, no
+index fix-up code — which is the property the contract is actually about.
+
 ## Bugs found during the build
 
 **`ReleaseCapture()` fires `WM_CAPTURECHANGED` synchronously.** The first draft of
