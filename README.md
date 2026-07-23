@@ -31,14 +31,14 @@ against their text and whose nominated spring panel absorbs all the slack.
 | File | Purpose |
 |---|---|
 | `CIconPanel.bi` / `.inc` | The control. `CIconPanel.bi` is the documented public header. |
-| `clsDoubleBuffer.bi` / `.inc` | Flicker-free drawing helper (vendored) |
+| `CBufferPaint.bi` / `.inc` | Flicker-free drawing helper (vendored) |
 | `main.bas`, `frmMain.bi` / `.inc` | Demo / test harness (three instances, one per justification) |
 | `SegoeFluentIcons.ttf` | The glyph font the demo loads privately |
 
 Include order — no scrollbar dependency, unlike CListBox:
 
 ```freebasic
-#include once "clsDoubleBuffer.inc"
+#include once "CBufferPaint.inc"
 #include once "CIconPanel.inc"
 ```
 
