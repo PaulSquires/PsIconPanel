@@ -24,6 +24,14 @@ one you can set, and the whole painter can be replaced with a single callback.
 
 ---
 
+## What it looks like
+
+![The CIconPanel demo](CIconPanel.png)
+
+The same seven items laid out in three panels: left-justified, centre-justified on a blue theme, and right-justified. A latching toggle is shown selected in the first and third, and the thin rules are control-drawn separators that are deliberately **not hit-testable**. Every cell width is declared by the author, never measured — which is what separates this from `CStatusBar`'s auto-sizing panels. Cropped below the panels.
+
+---
+
 ## Requirements
 
 **Files to copy into your project:**
