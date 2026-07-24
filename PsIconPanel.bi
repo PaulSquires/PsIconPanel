@@ -1,35 +1,35 @@
 
 #pragma once
 
-#include once "CBufferPaint.bi"
+#include once "PsBufferPaint.bi"
 
 ' Polling timer that guarantees hot-tracking is cleared when the mouse leaves the
 ' control. WM_MOUSELEAVE (TME_LEAVE) is not reliably delivered on fast exits, so a
 ' periodic cursor check acts as a safety net. Timer IDs are per-window, so every
 ' instance can share this id.
 #define IDT_CICONPANEL_HOTTRACK   &hCB50
-#define CICONPANEL_HOTTRACK_MS    100
+#define PSICONPANEL_HOTTRACK_MS    100
 
 ' Default icon cell size. Every icon gets a cell of exactly this size unless the item
-' overrides it. DPI-scaled at Create; CIconPanel_SetIconSize takes raw pixels thereafter.
-#define CICONPANEL_DEFAULT_ICONWIDTH   20
-#define CICONPANEL_DEFAULT_ICONHEIGHT  20
+' overrides it. DPI-scaled at Create; PsIconPanel_SetIconSize takes raw pixels thereafter.
+#define PSICONPANEL_DEFAULT_ICONWIDTH   20
+#define PSICONPANEL_DEFAULT_ICONHEIGHT  20
 
 ' Default space reserved BEFORE and AFTER each icon. This is the author's spacing control
 ' and the whole reason this control exists: it is never adjusted, redistributed or
 ' squeezed by the layout. DPI-scaled at Create; the setters take raw pixels thereafter.
-#define CICONPANEL_DEFAULT_PADBEFORE   4
-#define CICONPANEL_DEFAULT_PADAFTER    4
+#define PSICONPANEL_DEFAULT_PADBEFORE   4
+#define PSICONPANEL_DEFAULT_PADAFTER    4
 
 ' Default thickness of a separator's rule (it takes the place of the icon width in a
 ' separator's cell). DPI-scaled at Create.
-#define CICONPANEL_DEFAULT_SEPWIDTH    1
+#define PSICONPANEL_DEFAULT_SEPWIDTH    1
 
 
 ' Where the whole run of items sits in the client area. This is the ONLY thing the layout
 ' recomputes when the host resizes the panel: the run is shifted as one block, and the
 ' spacing inside it never changes.
-enum CICONPANEL_JUSTIFY
+enum PSICONPANEL_JUSTIFY
     IP_JUSTIFY_LEFT = 0
     IP_JUSTIFY_CENTER
     IP_JUSTIFY_RIGHT
@@ -38,12 +38,12 @@ end enum
 ' What an item DOES when clicked. Kind is authored at Add time and never changes.
 '   TOGGLE    - latches. Flips isSelected on a matched click and fires SelChangeCallback.
 '               Toggles are INDEPENDENT of each other: this control has no "current item",
-'               it has a set of switches (contrast CTabBar's single nCurSel).
+'               it has a set of switches (contrast PsTabBar's single nCurSel).
 '   COMMAND   - momentary. Draws pressed while held, fires ClickCallback on a matched
 '               release, and never latches.
 '   SEPARATOR - a vertical rule the control draws itself. Not hit-testable: it never goes
 '               hot, never presses, and HitTest returns -1 for it.
-enum CICONPANEL_ITEMKIND
+enum PSICONPANEL_ITEMKIND
     IP_KIND_TOGGLE = 0
     IP_KIND_COMMAND
     IP_KIND_SEPARATOR
@@ -52,7 +52,7 @@ end enum
 
 ' Colors for the built-in painter. Copied on Set. Defaults are tiko's dark theme, which is
 ' what this control was shaped for; a host on a light theme sets all eight.
-type CICONPANEL_COLORS
+type PSICONPANEL_COLORS
     BackColor         as COLORREF = BGR(33,37,43)     ' panel background + idle cell fill
     ForeColor         as COLORREF = BGR(215,218,224)  ' idle glyph
     BackColorHot      as COLORREF = BGR(44,49,58)
@@ -73,7 +73,7 @@ end type
 ' is the one source of truth; a per-item copy would be a second one to keep in sync. The
 ' same argument does NOT apply to isSelected: selection is multi-valued and persistent, so
 ' it genuinely lives on the item.
-type CICONPANEL_ITEM
+type PSICONPANEL_ITEM
     itemKind      as long = IP_KIND_TOGGLE
     wszGlyph      as DWSTRING          ' the Segoe Fluent Icons codepoint(s) to draw
     wszTooltip    as DWSTRING          ' "" = ask TooltipCallback, then show nothing
@@ -98,10 +98,10 @@ type CICONPANEL_ITEM
 end type
 
 
-type CICONPANEL_PAINTINFO
+type PSICONPANEL_PAINTINFO
     hIconPanel  as HWND                   ' the control, so the callback can query it
     itemID      as long                   ' item index (model index)
-    b           as CBufferPaint ptr    ' the control's buffer for this repaint (no copy)
+    b           as PsBufferPaint ptr    ' the control's buffer for this repaint (no copy)
     itemKind    as long                   ' IP_KIND_*
     rc          as RECT                   ' the full cell: fill THIS
     rcIcon      as RECT                   ' the icon rect: draw the glyph in THIS
@@ -115,7 +115,7 @@ type CICONPANEL_PAINTINFO
     wszGlyph    as DWSTRING
 end type
 
-type CICONPANEL_MESSAGEINFO
+type PSICONPANEL_MESSAGEINFO
     hIconPanel  as HWND
     uMsg        as UINT
     wParam      as WPARAM
@@ -131,12 +131,12 @@ end type
 ' render.
 '
 ' Two contracts worth honoring:
-'   - Draw the glyph with the SAME font you handed to CIconPanel_SetFont, sized to fit
+'   - Draw the glyph with the SAME font you handed to PsIconPanel_SetFont, sized to fit
 '     rcIcon. rcIcon is a LAYOUT cell, not a measurement of your glyph: the control never
 '     measures text, so a font too large for the cell simply clips.
 '   - Fill p->rc, not p->rcIcon. rc includes the item's padding and is what the control
 '     background-filled; leaving part of it unpainted shows the panel background through.
-type IP_PaintItemCallbackSub as sub( byval p as CICONPANEL_PAINTINFO ptr )
+type IP_PaintItemCallbackSub as sub( byval p as PSICONPANEL_PAINTINFO ptr )
 
 ' Observe mouse messages. Return TRUE if you handled it and want the control's default
 ' handling suppressed, FALSE to let it proceed.
@@ -145,13 +145,13 @@ type IP_PaintItemCallbackSub as sub( byval p as CICONPANEL_PAINTINFO ptr )
 ' IGNORED. The control holds mouse capture across a press (the press/cancel gesture
 ' consumes the guaranteed down->up pairing), and the up-message is what releases it: a
 ' callback that suppressed it would strand capture and route every subsequent click to
-' this control (the CListBox bug recorded in Learnings.md). Suppressing WM_LBUTTONDOWN
+' this control (the PsListBox bug recorded in Learnings.md). Suppressing WM_LBUTTONDOWN
 ' suppresses the press, never the capture bookkeeping.
-type IP_MessageCallbackFunc as function( byval m as CICONPANEL_MESSAGEINFO ptr ) as boolean
+type IP_MessageCallbackFunc as function( byval m as PSICONPANEL_MESSAGEINFO ptr ) as boolean
 
 ' Supply the tooltip text for an item, on demand (only when a tip is about to show).
 ' Consulted only when the item has no tooltip text of its own. Return "" for no tooltip.
-' Unlike CStatusBar/CTabBar there is no caption to fall back on -- an icon has none -- so
+' Unlike PsStatusBar/PsTabBar there is no caption to fall back on -- an icon has none -- so
 ' an item with neither its own text nor a callback answer simply shows no tip.
 type IP_TooltipCallbackFunc as function( byval hIconPanel as HWND, byval idx as long ) as DWSTRING
 
@@ -161,31 +161,31 @@ type IP_TooltipCallbackFunc as function( byval hIconPanel as HWND, byval idx as 
 type IP_ClickCallbackSub as sub( byval hIconPanel as HWND, byval idx as long, byval id as long )
 
 ' A TOGGLE item latched or unlatched through USER interaction. Fired AFTER the control's
-' state is updated, so CIconPanel_GetSelected( h, idx ) = isSelected. Programmatic
-' CIconPanel_SetSelected does NOT fire this -- only the user does (the family rule, and
+' state is updated, so PsIconPanel_GetSelected( h, idx ) = isSelected. Programmatic
+' PsIconPanel_SetSelected does NOT fire this -- only the user does (the family rule, and
 ' Win32's TCM_SETCURSEL / TCN_SELCHANGE precedent), which also makes it safe to call the
 ' setter from inside the handler without recursing.
 type IP_SelChangeCallbackSub as sub( byval hIconPanel as HWND, byval idx as long, byval isSelected as boolean )
 
 
-type CICONPANEL
+type PSICONPANEL
     hWin              as HWND
     hToolTip          as HWND
     wszTooltip        as DWSTRING
-    items(any)        as CICONPANEL_ITEM
+    items(any)        as PSICONPANEL_ITEM
     itemCount         as long = 0
     idc_IconPanel     as long = 0
     HoverTime         as long = 250
     ' Two single-valued indices. Because the item set is STATIC -- items are added once and
     ' never inserted, deleted or moved -- neither can ever be left dangling by a mutation,
     ' so this control carries none of the index fix-up code the dynamic siblings need
-    ' (three separate sites in CTabBar.bi alone, and the family's most repeated bug class).
+    ' (three separate sites in PsTabBar.bi alone, and the family's most repeated bug class).
     nLastHotIdx       as long = -1       ' item the mouse was last over (hover tracking)
     hotTimerOn        as boolean = false ' is the hot-tracking safety-net timer running?
     ' --- Press state (mouse capture). The control TAKES capture on a press -- unlike
-    '     CStatusBar, and deliberately: the press/cancel gesture (press an icon, slide
+    '     PsStatusBar, and deliberately: the press/cancel gesture (press an icon, slide
     '     off, release, nothing happens) consumes the guaranteed down->up pairing, which
-    '     is the family's test for taking capture. It pays CVScrollBar's full price:
+    '     is the family's test for taking capture. It pays PsVScrollBar's full price:
     '     snapshot the pressed index BEFORE releasing (ReleaseCapture sends
     '     WM_CAPTURECHANGED synchronously -- Learnings.md), release on the up-message
     '     before any callback runs, WM_CAPTURECHANGED cancels the press, WM_DESTROY
@@ -194,7 +194,7 @@ type CICONPANEL
     '     exactly (nLastHotIdx = nPressedIdx), and hover tracking already maintains that
     '     through the capture (moves outside the client report -1). ---
     nPressedIdx       as long = -1       ' item under a live left press, or -1
-    colors            as CICONPANEL_COLORS
+    colors            as PSICONPANEL_COLORS
     ' Caller-supplied font (caller owns it). NOT named hFont: FreeBASIC is case-insensitive,
     ' so a member called hFont would shadow the TYPE name HFONT inside every member
     ' procedure of this type, and "dim as HFONT x" there fails with a misleading
@@ -204,11 +204,11 @@ type CICONPANEL
     '     Layout is lazy: mutators mark it dirty, the next paint (or any rect query) runs
     '     it, which coalesces a burst of mutations into one pass. ---
     nJustify          as long = IP_JUSTIFY_LEFT
-    nIconWidth        as long = CICONPANEL_DEFAULT_ICONWIDTH    ' DPI-scaled at Create
-    nIconHeight       as long = CICONPANEL_DEFAULT_ICONHEIGHT   ' DPI-scaled at Create
-    nPadBefore        as long = CICONPANEL_DEFAULT_PADBEFORE    ' DPI-scaled at Create
-    nPadAfter         as long = CICONPANEL_DEFAULT_PADAFTER     ' DPI-scaled at Create
-    nSepWidth         as long = CICONPANEL_DEFAULT_SEPWIDTH     ' DPI-scaled at Create
+    nIconWidth        as long = PSICONPANEL_DEFAULT_ICONWIDTH    ' DPI-scaled at Create
+    nIconHeight       as long = PSICONPANEL_DEFAULT_ICONHEIGHT   ' DPI-scaled at Create
+    nPadBefore        as long = PSICONPANEL_DEFAULT_PADBEFORE    ' DPI-scaled at Create
+    nPadAfter         as long = PSICONPANEL_DEFAULT_PADAFTER     ' DPI-scaled at Create
+    nSepWidth         as long = PSICONPANEL_DEFAULT_SEPWIDTH     ' DPI-scaled at Create
     nTotalWidth       as long = 0        ' summed cell widths = the run's ideal width
     bLayoutDirty      as boolean = true
     PaintItemCallback as IP_PaintItemCallbackSub    ' optional; replaces the built-in painter
@@ -219,8 +219,8 @@ type CICONPANEL
 
     declare sub      LayoutItems()
     declare function GetCount() as long                                     ' item count
-    declare function AddItem() as CICONPANEL_ITEM ptr                       ' append
-    declare function GetItem( byval idx as long ) as CICONPANEL_ITEM ptr
+    declare function AddItem() as PSICONPANEL_ITEM ptr                       ' append
+    declare function GetItem( byval idx as long ) as PSICONPANEL_ITEM ptr
     declare function IsValidItem( byval idx as long ) as boolean
     declare function HitTest( byval x as long, byval y as long ) as long
     declare sub      CancelPress()
@@ -247,19 +247,19 @@ end type
 '      font matters at paint time only. Layout stays lazy purely to coalesce mutations.
 '
 '   2. A resize moves x0 and nothing else. Relative spacing is authored and is never
-'      adjusted, redistributed, or squeezed. That is the whole difference from CStatusBar,
+'      adjusted, redistributed, or squeezed. That is the whole difference from PsStatusBar,
 '      whose panels auto-size to their text and whose spring absorbs the slack.
 '
 ' On overflow the justification degrades to LEFT and the tail clips at the client edge:
 ' the leading icons stay reachable, and rects are computed honestly rather than squeezed
-' (CTabBar's rule) -- clipping is the paint pass's job, and the cursor cannot reach past
+' (PsTabBar's rule) -- clipping is the paint pass's job, and the cursor cannot reach past
 ' the edge anyway, so hit-testing stays correct for free.
 '
 ' rc spans the FULL client height, so the hot/selected fill reads like a menu bar and the
 ' hit target includes the item's padding. Only rcIcon obeys the "centred vertically in the
 ' client area" rule. A host wanting a compact pill highlight fills an inflated rcIcon from
 ' the paint callback instead.
-sub CICONPANEL.LayoutItems()
+sub PSICONPANEL.LayoutItems()
     this.bLayoutDirty = false
     this.nTotalWidth  = 0
     if this.hWin = 0 then exit sub
@@ -332,15 +332,15 @@ sub CICONPANEL.LayoutItems()
     next
 end sub
 
-function CICONPANEL.GetCount() as long
+function PSICONPANEL.GetCount() as long
     return this.itemCount
 end function
 
-function CICONPANEL.IsValidItem( byval idx as long ) as boolean
+function PSICONPANEL.IsValidItem( byval idx as long ) as boolean
     return (idx >= 0) andalso (idx < this.itemCount)
 end function
 
-function CICONPANEL.GetItem( byval idx as long ) as CICONPANEL_ITEM ptr
+function PSICONPANEL.GetItem( byval idx as long ) as PSICONPANEL_ITEM ptr
     if this.IsValidItem(idx) = false then return null
     return @this.items(idx)
 end function
@@ -349,7 +349,7 @@ end function
 ' decoration, not targets. DISABLED items are NOT excluded: they still occupy their cell,
 ' and a host asking "what is here" deserves the truth. The hover and click paths add the
 ' enabled test themselves.
-function CICONPANEL.HitTest( byval x as long, byval y as long ) as long
+function PSICONPANEL.HitTest( byval x as long, byval y as long ) as long
     dim as POINT pt
     pt.x = x
     pt.y = y
@@ -365,7 +365,7 @@ end function
 '
 ' There is NO InsertItemAt and NO DeleteItemAt, deliberately -- the item set is static. See
 ' the type's index comment for what that buys.
-function CICONPANEL.AddItem() as CICONPANEL_ITEM ptr
+function PSICONPANEL.AddItem() as PSICONPANEL_ITEM ptr
     dim as long cap = ubound(this.items) + 1
     if this.itemCount >= cap then
         dim as long newcap = iif( cap = 0, 16, cap * 2 )
@@ -403,13 +403,13 @@ end function
 ' from SetEnabled when the pressed item is disabled out from under the gesture. Releasing
 ' capture is the WndProc's job, and only on the up-message or WM_DESTROY -- doing it here
 ' would let a callback strand or double-release it.
-sub CICONPANEL.CancelPress()
+sub PSICONPANEL.CancelPress()
     this.nPressedIdx = -1
 end sub
 
 ' Mark the layout stale and request a repaint. Every mutator routes through here, which is
 ' what makes layout lazy: a burst of Add calls costs one layout pass, not N.
-sub CICONPANEL.Refresh()
+sub PSICONPANEL.Refresh()
     this.bLayoutDirty = true
     ' Repaint WITH background erase so a region vacated by a shrinking run is cleared --
     ' with three justifications the run can move wholesale, so this matters more here than
@@ -428,7 +428,7 @@ end sub
 '   auto-sizing, no spring panel, no squeezing to fit. The one thing it recomputes when the
 '   host resizes is where the whole run sits: left, centred, or right, as one block.
 '
-'   That is the difference from CStatusBar, whose panels measure themselves against their
+'   That is the difference from PsStatusBar, whose panels measure themselves against their
 '   text and whose nominated spring panel absorbs all slack.
 '
 ' STATIC BY CONTRACT
@@ -443,7 +443,7 @@ end sub
 '   exactly where it was.
 '
 ' THE CONTROL HANDLE
-'   Every CIconPanel_* function takes the handle returned by CIconPanel_Create().
+'   Every PsIconPanel_* function takes the handle returned by PsIconPanel_Create().
 '
 '   The handle is a real HWND on purpose (not an opaque type): callers legitimately need
 '   to treat the control as a window, e.g. SetWindowPos() to place and size it. An opaque
@@ -461,7 +461,7 @@ end sub
 '   CtrlID becomes the control window's id (GWLP_ID). There are no child controls.
 '   The control is created zero-sized: position it with SetWindowPos().
 ' ----------------------------------------------------------------------------------------
-declare function CIconPanel_Create( byval hWndParent as HWND, byval CtrlID as long ) as HWND
+declare function PsIconPanel_Create( byval hWndParent as HWND, byval CtrlID as long ) as HWND
 
 ' ----------------------------------------------------------------------------------------
 ' Building the panel.  Add* return the new item's index, or -1.
@@ -472,9 +472,9 @@ declare function CIconPanel_Create( byval hWndParent as HWND, byval CtrlID as lo
 '   again -- the static contract above. Build the panel once, then drive it with the state
 '   setters (SetSelected, SetEnabled, SetGlyph, SetItemForeColor).
 ' ----------------------------------------------------------------------------------------
-declare function CIconPanel_AddItem( byval hIconPanel as HWND, byval itemKind as long, byval Glyph as DWSTRING, byval id as long = 0, byval itemData as integer = 0 ) as long
-declare function CIconPanel_AddSeparator( byval hIconPanel as HWND ) as long
-declare sub      CIconPanel_Refresh( byval hIconPanel as HWND )
+declare function PsIconPanel_AddItem( byval hIconPanel as HWND, byval itemKind as long, byval Glyph as DWSTRING, byval id as long = 0, byval itemData as integer = 0 ) as long
+declare function PsIconPanel_AddSeparator( byval hIconPanel as HWND ) as long
+declare sub      PsIconPanel_Refresh( byval hIconPanel as HWND )
 
 ' ----------------------------------------------------------------------------------------
 ' Counts and lookup.
@@ -482,10 +482,10 @@ declare sub      CIconPanel_Refresh( byval hIconPanel as HWND )
 '   coordinates, forces a pending layout, and returns the item there (separators excluded,
 '   disabled items included) or -1.
 ' ----------------------------------------------------------------------------------------
-declare function CIconPanel_GetCount( byval hIconPanel as HWND ) as long
-declare function CIconPanel_IsValidItem( byval hIconPanel as HWND, byval idx as long ) as boolean
-declare function CIconPanel_FindItemByID( byval hIconPanel as HWND, byval id as long ) as long
-declare function CIconPanel_HitTest( byval hIconPanel as HWND, byval x as long, byval y as long ) as long
+declare function PsIconPanel_GetCount( byval hIconPanel as HWND ) as long
+declare function PsIconPanel_IsValidItem( byval hIconPanel as HWND, byval idx as long ) as boolean
+declare function PsIconPanel_FindItemByID( byval hIconPanel as HWND, byval id as long ) as long
+declare function PsIconPanel_HitTest( byval hIconPanel as HWND, byval x as long, byval y as long ) as long
 
 ' ----------------------------------------------------------------------------------------
 ' Item contents and state.  Set* return FALSE for an invalid item index.
@@ -495,17 +495,17 @@ declare function CIconPanel_HitTest( byval hIconPanel as HWND, byval x as long, 
 '   change handler. SetEnabled(false) greys the item, stops it going hot, and makes it
 '   swallow clicks; disabling the item under a live press cancels the press.
 ' ----------------------------------------------------------------------------------------
-declare function CIconPanel_GetItemKind( byval hIconPanel as HWND, byval idx as long ) as long
-declare function CIconPanel_GetGlyph( byval hIconPanel as HWND, byval idx as long ) as DWSTRING
-declare function CIconPanel_SetGlyph( byval hIconPanel as HWND, byval idx as long, byval Glyph as DWSTRING ) as boolean
-declare function CIconPanel_GetItemID( byval hIconPanel as HWND, byval idx as long ) as long
-declare function CIconPanel_SetItemID( byval hIconPanel as HWND, byval idx as long, byval id as long ) as boolean
-declare function CIconPanel_GetItemData( byval hIconPanel as HWND, byval idx as long ) as integer
-declare function CIconPanel_SetItemData( byval hIconPanel as HWND, byval idx as long, byval itemData as integer ) as boolean
-declare function CIconPanel_GetSelected( byval hIconPanel as HWND, byval idx as long ) as boolean
-declare function CIconPanel_SetSelected( byval hIconPanel as HWND, byval idx as long, byval isSelected as boolean ) as boolean
-declare function CIconPanel_GetEnabled( byval hIconPanel as HWND, byval idx as long ) as boolean
-declare function CIconPanel_SetEnabled( byval hIconPanel as HWND, byval idx as long, byval isEnabled as boolean ) as boolean
+declare function PsIconPanel_GetItemKind( byval hIconPanel as HWND, byval idx as long ) as long
+declare function PsIconPanel_GetGlyph( byval hIconPanel as HWND, byval idx as long ) as DWSTRING
+declare function PsIconPanel_SetGlyph( byval hIconPanel as HWND, byval idx as long, byval Glyph as DWSTRING ) as boolean
+declare function PsIconPanel_GetItemID( byval hIconPanel as HWND, byval idx as long ) as long
+declare function PsIconPanel_SetItemID( byval hIconPanel as HWND, byval idx as long, byval id as long ) as boolean
+declare function PsIconPanel_GetItemData( byval hIconPanel as HWND, byval idx as long ) as integer
+declare function PsIconPanel_SetItemData( byval hIconPanel as HWND, byval idx as long, byval itemData as integer ) as boolean
+declare function PsIconPanel_GetSelected( byval hIconPanel as HWND, byval idx as long ) as boolean
+declare function PsIconPanel_SetSelected( byval hIconPanel as HWND, byval idx as long, byval isSelected as boolean ) as boolean
+declare function PsIconPanel_GetEnabled( byval hIconPanel as HWND, byval idx as long ) as boolean
+declare function PsIconPanel_SetEnabled( byval hIconPanel as HWND, byval idx as long, byval isEnabled as boolean ) as boolean
 
 ' ----------------------------------------------------------------------------------------
 ' Layout.
@@ -523,19 +523,19 @@ declare function CIconPanel_SetEnabled( byval hIconPanel as HWND, byval idx as l
 '   fixed-width panel yourself). Rects are computed lazily; every query here forces a
 '   pending layout, so results are always current.
 ' ----------------------------------------------------------------------------------------
-declare function CIconPanel_GetJustify( byval hIconPanel as HWND ) as long
-declare sub      CIconPanel_SetJustify( byval hIconPanel as HWND, byval nJustify as long )
-declare sub      CIconPanel_GetIconSize( byval hIconPanel as HWND, byref nIconWidth as long, byref nIconHeight as long )
-declare sub      CIconPanel_SetIconSize( byval hIconPanel as HWND, byval nIconWidth as long, byval nIconHeight as long )
-declare sub      CIconPanel_GetPadding( byval hIconPanel as HWND, byref nPadBefore as long, byref nPadAfter as long )
-declare sub      CIconPanel_SetPadding( byval hIconPanel as HWND, byval nPadBefore as long, byval nPadAfter as long )
-declare function CIconPanel_GetSeparatorWidth( byval hIconPanel as HWND ) as long
-declare sub      CIconPanel_SetSeparatorWidth( byval hIconPanel as HWND, byval nSepWidth as long )
-declare function CIconPanel_SetItemPadding( byval hIconPanel as HWND, byval idx as long, byval nPadBefore as long, byval nPadAfter as long ) as boolean
-declare function CIconPanel_SetItemIconSize( byval hIconPanel as HWND, byval idx as long, byval nIconWidth as long, byval nIconHeight as long ) as boolean
-declare function CIconPanel_GetItemRect( byval hIconPanel as HWND, byval idx as long, byref rc as RECT ) as boolean
-declare function CIconPanel_GetItemIconRect( byval hIconPanel as HWND, byval idx as long, byref rc as RECT ) as boolean
-declare function CIconPanel_GetIdealWidth( byval hIconPanel as HWND ) as long
+declare function PsIconPanel_GetJustify( byval hIconPanel as HWND ) as long
+declare sub      PsIconPanel_SetJustify( byval hIconPanel as HWND, byval nJustify as long )
+declare sub      PsIconPanel_GetIconSize( byval hIconPanel as HWND, byref nIconWidth as long, byref nIconHeight as long )
+declare sub      PsIconPanel_SetIconSize( byval hIconPanel as HWND, byval nIconWidth as long, byval nIconHeight as long )
+declare sub      PsIconPanel_GetPadding( byval hIconPanel as HWND, byref nPadBefore as long, byref nPadAfter as long )
+declare sub      PsIconPanel_SetPadding( byval hIconPanel as HWND, byval nPadBefore as long, byval nPadAfter as long )
+declare function PsIconPanel_GetSeparatorWidth( byval hIconPanel as HWND ) as long
+declare sub      PsIconPanel_SetSeparatorWidth( byval hIconPanel as HWND, byval nSepWidth as long )
+declare function PsIconPanel_SetItemPadding( byval hIconPanel as HWND, byval idx as long, byval nPadBefore as long, byval nPadAfter as long ) as boolean
+declare function PsIconPanel_SetItemIconSize( byval hIconPanel as HWND, byval idx as long, byval nIconWidth as long, byval nIconHeight as long ) as boolean
+declare function PsIconPanel_GetItemRect( byval hIconPanel as HWND, byval idx as long, byref rc as RECT ) as boolean
+declare function PsIconPanel_GetItemIconRect( byval hIconPanel as HWND, byval idx as long, byref rc as RECT ) as boolean
+declare function PsIconPanel_GetIdealWidth( byval hIconPanel as HWND ) as long
 
 ' ----------------------------------------------------------------------------------------
 ' Appearance.  The font is borrowed, never owned: keep it alive and destroy it yourself.
@@ -549,21 +549,21 @@ declare function CIconPanel_GetIdealWidth( byval hIconPanel as HWND ) as long
 '   run arrow); hot, selected and disabled keep the panel's colors, so a hover always
 '   speaks the panel's language. ClearItemForeColor goes back to the panel's ForeColor.
 ' ----------------------------------------------------------------------------------------
-declare sub      CIconPanel_GetColors( byval hIconPanel as HWND, byval pColors as CICONPANEL_COLORS ptr )
-declare sub      CIconPanel_SetColors( byval hIconPanel as HWND, byval pColors as CICONPANEL_COLORS ptr )
-declare function CIconPanel_SetItemForeColor( byval hIconPanel as HWND, byval idx as long, byval clr as COLORREF ) as boolean
-declare function CIconPanel_ClearItemForeColor( byval hIconPanel as HWND, byval idx as long ) as boolean
-declare function CIconPanel_GetFont( byval hIconPanel as HWND ) as HFONT
-declare function CIconPanel_SetFont( byval hIconPanel as HWND, byval hIconFont as HFONT ) as boolean
-declare function CIconPanel_GetTooltipHandle( byval hIconPanel as HWND ) as HWND
-declare sub      CIconPanel_SetHoverTime( byval hIconPanel as HWND, byval milliseconds as long )
+declare sub      PsIconPanel_GetColors( byval hIconPanel as HWND, byval pColors as PSICONPANEL_COLORS ptr )
+declare sub      PsIconPanel_SetColors( byval hIconPanel as HWND, byval pColors as PSICONPANEL_COLORS ptr )
+declare function PsIconPanel_SetItemForeColor( byval hIconPanel as HWND, byval idx as long, byval clr as COLORREF ) as boolean
+declare function PsIconPanel_ClearItemForeColor( byval hIconPanel as HWND, byval idx as long ) as boolean
+declare function PsIconPanel_GetFont( byval hIconPanel as HWND ) as HFONT
+declare function PsIconPanel_SetFont( byval hIconPanel as HWND, byval hIconFont as HFONT ) as boolean
+declare function PsIconPanel_GetTooltipHandle( byval hIconPanel as HWND ) as HWND
+declare sub      PsIconPanel_SetHoverTime( byval hIconPanel as HWND, byval milliseconds as long )
 
 ' ----------------------------------------------------------------------------------------
 ' Tooltips.  Per-item text wins; the callback is consulted only for items with none; an
 ' item with neither shows no tip.
 ' ----------------------------------------------------------------------------------------
-declare function CIconPanel_GetTooltipText( byval hIconPanel as HWND, byval idx as long ) as DWSTRING
-declare function CIconPanel_SetTooltipText( byval hIconPanel as HWND, byval idx as long, byval Text as DWSTRING ) as boolean
+declare function PsIconPanel_GetTooltipText( byval hIconPanel as HWND, byval idx as long ) as DWSTRING
+declare function PsIconPanel_SetTooltipText( byval hIconPanel as HWND, byval idx as long, byval Text as DWSTRING ) as boolean
 
 ' ----------------------------------------------------------------------------------------
 ' Callbacks.  See the type declarations above for each signature and contract.
@@ -575,8 +575,8 @@ declare function CIconPanel_SetTooltipText( byval hIconPanel as HWND, byval idx 
 '   ClickCallback     - a COMMAND item was clicked (matched press+release).
 '   SelChangeCallback - a TOGGLE item latched/unlatched. Programmatic SetSelected is silent.
 ' ----------------------------------------------------------------------------------------
-declare sub      CIconPanel_SetPaintItemCallback( byval hIconPanel as HWND, byval usersub as IP_PaintItemCallbackSub )
-declare sub      CIconPanel_SetMessageCallback( byval hIconPanel as HWND, byval userfunc as IP_MessageCallbackFunc )
-declare sub      CIconPanel_SetTooltipCallback( byval hIconPanel as HWND, byval userfunc as IP_TooltipCallbackFunc )
-declare sub      CIconPanel_SetClickCallback( byval hIconPanel as HWND, byval usersub as IP_ClickCallbackSub )
-declare sub      CIconPanel_SetSelChangeCallback( byval hIconPanel as HWND, byval usersub as IP_SelChangeCallbackSub )
+declare sub      PsIconPanel_SetPaintItemCallback( byval hIconPanel as HWND, byval usersub as IP_PaintItemCallbackSub )
+declare sub      PsIconPanel_SetMessageCallback( byval hIconPanel as HWND, byval userfunc as IP_MessageCallbackFunc )
+declare sub      PsIconPanel_SetTooltipCallback( byval hIconPanel as HWND, byval userfunc as IP_TooltipCallbackFunc )
+declare sub      PsIconPanel_SetClickCallback( byval hIconPanel as HWND, byval usersub as IP_ClickCallbackSub )
+declare sub      PsIconPanel_SetSelChangeCallback( byval hIconPanel as HWND, byval usersub as IP_SelChangeCallbackSub )

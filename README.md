@@ -1,4 +1,4 @@
-# CIconPanel
+# PsIconPanel
 
 An owner-drawn horizontal icon strip for FreeBASIC Win32 applications: a run of glyph cells —
 latching toggles, momentary command buttons, and drawn separator rules — laid out left to right
@@ -14,8 +14,8 @@ moved as a single block.
 **The item set is static by contract.** Items are added once, when you build the panel, and
 there is no `InsertItem`, no `DeleteItem` and no `Clear` — nothing removes or reorders an item
 once it exists. Everything you do at runtime goes through the state setters
-(`CIconPanel_SetSelected`, `CIconPanel_SetEnabled`, `CIconPanel_SetGlyph`,
-`CIconPanel_SetItemForeColor`), each of which addresses an item that is still exactly where you
+(`PsIconPanel_SetSelected`, `PsIconPanel_SetEnabled`, `PsIconPanel_SetGlyph`,
+`PsIconPanel_SetItemForeColor`), each of which addresses an item that is still exactly where you
 put it. If you need a strip whose contents change at runtime, this is not the control for it.
 
 It draws itself entirely — there is no system control underneath, and nothing about its
@@ -26,9 +26,9 @@ one you can set, and the whole painter can be replaced with a single callback.
 
 ## What it looks like
 
-![The CIconPanel demo](CIconPanel.png)
+![The PsIconPanel demo](PsIconPanel.png)
 
-The same seven items laid out in three panels: left-justified, centre-justified on a blue theme, and right-justified. A latching toggle is shown selected in the first and third, and the thin rules are control-drawn separators that are deliberately **not hit-testable**. Every cell width is declared by the author, never measured — which is what separates this from `CStatusBar`'s auto-sizing panels. Cropped below the panels.
+The same seven items laid out in three panels: left-justified, centre-justified on a blue theme, and right-justified. A latching toggle is shown selected in the first and third, and the thin rules are control-drawn separators that are deliberately **not hit-testable**. Every cell width is declared by the author, never measured — which is what separates this from `PsStatusBar`'s auto-sizing panels. Cropped below the panels.
 
 ---
 
@@ -38,12 +38,12 @@ The same seven items laid out in three panels: left-justified, centre-justified 
 
 | File | Purpose |
 |---|---|
-| `CIconPanel.bi` | Declarations — types, callbacks, constants, function prototypes |
-| `CIconPanel.inc` | Implementation |
-| `CBufferPaint.bi` | The flicker-free drawing surface the control paints through |
-| `CBufferPaint.inc` | Its implementation |
+| `PsIconPanel.bi` | Declarations — types, callbacks, constants, function prototypes |
+| `PsIconPanel.inc` | Implementation |
+| `PsBufferPaint.bi` | The flicker-free drawing surface the control paints through |
+| `PsBufferPaint.inc` | Its implementation |
 
-**AfxNova is required.** The control is built on `CWindow`, and `CBufferPaint` draws through
+**AfxNova is required.** The control is built on `CWindow`, and `PsBufferPaint` draws through
 `AfxNova\CGdiPlus.inc`. Sources include AfxNova relative to the workspace root
 (`#include once "AfxNova\CWindow.inc"`), so builds need the workspace root on the include path:
 
@@ -51,7 +51,7 @@ The same seven items laid out in three panels: left-justified, centre-justified 
 fbc64.exe -i "C:\dev" main.bas
 ```
 
-**Include order.** `CIconPanel.inc` pulls in its own `.bi`, which pulls in `CBufferPaint.bi`.
+**Include order.** `PsIconPanel.inc` pulls in its own `.bi`, which pulls in `PsBufferPaint.bi`.
 The two implementation files are included in this order, after AfxNova and after
 `using AfxNova`:
 
@@ -63,11 +63,11 @@ The two implementation files are included in this order, after AfxNova and after
 
 using AfxNova
 
-#include once "CBufferPaint.inc"
-#include once "CIconPanel.inc"
+#include once "PsBufferPaint.inc"
+#include once "PsIconPanel.inc"
 ```
 
-**GDI+ must be running before the first repaint and must outlive the last one.** `CBufferPaint`
+**GDI+ must be running before the first repaint and must outlive the last one.** `PsBufferPaint`
 renders geometry through GDI+, so bracket your message loop:
 
 ```freebasic
@@ -77,7 +77,7 @@ AfxGdipShutdown( gdipToken )
 ```
 
 `AfxGdipShutdown` must come after every window is destroyed, because each repaint builds and
-tears down a `CBufferPaint`. If your host also initialises COM, shut GDI+ down before
+tears down a `PsBufferPaint`. If your host also initialises COM, shut GDI+ down before
 `CoUninitialize` — GDI+ leans on COM.
 
 **Never name an identifier `ok`.** GDI+ defines `Ok = 0` as a `Status` enum value in namespace
@@ -90,7 +90,7 @@ message loop. It does not take focus, is not a tabstop, and handles no keyboard 
 needs neither `IsDialogMessage` nor a `FilterMessage` call of its own to work correctly.
 
 **You supply and own the glyph font.** The control never creates an `HFONT`. Hand it one with
-`CIconPanel_SetFont`, keep it alive for as long as the control is painting, and destroy it
+`PsIconPanel_SetFont`, keep it alive for as long as the control is painting, and destroy it
 yourself. The glyphs are normally Segoe Fluent Icons codepoints, so the font you pass is normally
 that face at a size that fits your icon cell.
 
@@ -100,35 +100,35 @@ that face at a size that fits your icon cell.
 
 ```freebasic
 ' Create it. The control is created zero-sized and hidden.
-dim as HWND hPanel = CIconPanel_Create( hWndParent, IDC_MYFORM_ICONPANEL )
+dim as HWND hPanel = PsIconPanel_Create( hWndParent, IDC_MYFORM_ICONPANEL )
 
 ' The font is a paint-time input. The caller owns this HFONT.
-CIconPanel_SetFont( hPanel, ghFont(SYMBOLFONT_12) )
-CIconPanel_SetJustify( hPanel, IP_JUSTIFY_LEFT )
+PsIconPanel_SetFont( hPanel, ghFont(SYMBOLFONT_12) )
+PsIconPanel_SetJustify( hPanel, IP_JUSTIFY_LEFT )
 
 ' Be told what the user did.
-CIconPanel_SetClickCallback( hPanel, @MyPanel_Click )           ' COMMAND items
-CIconPanel_SetSelChangeCallback( hPanel, @MyPanel_SelChange )   ' TOGGLE items
+PsIconPanel_SetClickCallback( hPanel, @MyPanel_Click )           ' COMMAND items
+PsIconPanel_SetSelChangeCallback( hPanel, @MyPanel_SelChange )   ' TOGGLE items
 
 ' Build the strip. This happens once: items are never removed or reordered.
 dim as long idx
 
-idx = CIconPanel_AddItem( hPanel, IP_KIND_COMMAND, wchr(&hE74E), IDM_SAVE )
-CIconPanel_SetTooltipText( hPanel, idx, "Save" )
+idx = PsIconPanel_AddItem( hPanel, IP_KIND_COMMAND, wchr(&hE74E), IDM_SAVE )
+PsIconPanel_SetTooltipText( hPanel, idx, "Save" )
 
-idx = CIconPanel_AddItem( hPanel, IP_KIND_COMMAND, wchr(&hE72C), IDM_REFRESH )
-CIconPanel_SetTooltipText( hPanel, idx, "Refresh" )
-CIconPanel_SetItemForeColor( hPanel, idx, BGR(126,190,126) )    ' idle glyph colour only
+idx = PsIconPanel_AddItem( hPanel, IP_KIND_COMMAND, wchr(&hE72C), IDM_REFRESH )
+PsIconPanel_SetTooltipText( hPanel, idx, "Refresh" )
+PsIconPanel_SetItemForeColor( hPanel, idx, BGR(126,190,126) )    ' idle glyph colour only
 
-CIconPanel_AddSeparator( hPanel )
+PsIconPanel_AddSeparator( hPanel )
 
-idx = CIconPanel_AddItem( hPanel, IP_KIND_TOGGLE, wchr(&hE734), IDM_FAVOURITE )
-CIconPanel_SetTooltipText( hPanel, idx, "Favourite" )
-CIconPanel_SetSelected( hPanel, idx, true )   ' silent: no SelChange callback
+idx = PsIconPanel_AddItem( hPanel, IP_KIND_TOGGLE, wchr(&hE734), IDM_FAVOURITE )
+PsIconPanel_SetTooltipText( hPanel, idx, "Favourite" )
+PsIconPanel_SetSelected( hPanel, idx, true )   ' silent: no SelChange callback
 
 ' Place it like any window. GetIdealWidth is the summed width of every cell, and is
 ' valid before the control has ever been sized.
-SetWindowPos( hPanel, 0, x, y, CIconPanel_GetIdealWidth( hPanel ), nHeight, SWP_NOZORDER )
+SetWindowPos( hPanel, 0, x, y, PsIconPanel_GetIdealWidth( hPanel ), nHeight, SWP_NOZORDER )
 ShowWindow( hPanel, SW_SHOW )
 ```
 
@@ -142,7 +142,7 @@ end sub
 
 sub MyPanel_SelChange( byval hPanel as HWND, byval idx as long, byval isSelected as boolean )
     ' A TOGGLE item the USER flipped. The state is already updated, so
-    ' CIconPanel_GetSelected( hPanel, idx ) = isSelected.
+    ' PsIconPanel_GetSelected( hPanel, idx ) = isSelected.
     gConfig.ShowFavourites = isSelected
 end sub
 ```
@@ -155,7 +155,7 @@ That is the whole minimum. Everything below is refinement.
 
 ### The handle is a real HWND
 
-`CIconPanel_Create` returns an ordinary window handle, and every `CIconPanel_*` function takes
+`PsIconPanel_Create` returns an ordinary window handle, and every `PsIconPanel_*` function takes
 it. It is not an opaque type, so you can treat the control as the window it is — `SetWindowPos`
 to place and size it, `ShowWindow` to show it, `GetDlgItem` to find it by the `CtrlID` you passed
 at creation. Any number of instances can coexist; each owns all of its own state, including its
@@ -163,7 +163,7 @@ hover and press tracking.
 
 ### It is created zero-sized and hidden
 
-`CIconPanel_Create` gives the control the styles `WS_CHILD`, `WS_CLIPSIBLINGS` and
+`PsIconPanel_Create` gives the control the styles `WS_CHILD`, `WS_CLIPSIBLINGS` and
 `WS_CLIPCHILDREN`. `WS_VISIBLE` is deliberately absent, so a newly created control shows nothing
 until you size it and call `ShowWindow`. That lets you build and configure the whole strip before
 it is ever seen. There is no `WS_TABSTOP` and there are no child windows: the control window *is*
@@ -220,7 +220,7 @@ remember, and building a panel of twenty items costs one layout pass, not twenty
 |---|---|
 | `IP_KIND_TOGGLE` | Latches. A matched click flips `isSelected` and fires the SelChange callback. |
 | `IP_KIND_COMMAND` | Momentary. Draws pressed while held, fires the Click callback on a matched release, and never latches. |
-| `IP_KIND_SEPARATOR` | A vertical rule the control draws itself. **Not hit-testable**: it never goes hot, never presses, and `CIconPanel_HitTest` returns -1 for it. |
+| `IP_KIND_SEPARATOR` | A vertical rule the control draws itself. **Not hit-testable**: it never goes hot, never presses, and `PsIconPanel_HitTest` returns -1 for it. |
 
 The kind is fixed when the item is added and never changes. A separator's rule takes the place of
 the icon *width* in its cell but keeps the icon *height*, so the rule stands exactly as tall as
@@ -235,34 +235,34 @@ contrast, is transient and single-valued, so the hot state lives on the control 
 item is hot, or none.
 
 **Radio behaviour is yours to implement**, and the natural place is inside your own SelChange
-handler. `CIconPanel_SetSelected` is silent, so clearing the other items from there cannot
+handler. `PsIconPanel_SetSelected` is silent, so clearing the other items from there cannot
 recurse:
 
 ```freebasic
 sub MyPanel_SelChange( byval hPanel as HWND, byval idx as long, byval isSelected as boolean )
     if isSelected = false then
         ' Refuse to let the user turn the current one off, if that is the semantic you want.
-        CIconPanel_SetSelected( hPanel, idx, true )
+        PsIconPanel_SetSelected( hPanel, idx, true )
         exit sub
     end if
     ' Exactly-one behaviour: clear every other toggle. These calls are silent, and
     ' SetSelected simply returns FALSE for the commands and separators it meets.
-    for i as long = 0 to CIconPanel_GetCount( hPanel ) - 1
-        if i <> idx then CIconPanel_SetSelected( hPanel, i, false )
+    for i as long = 0 to PsIconPanel_GetCount( hPanel ) - 1
+        if i <> idx then PsIconPanel_SetSelected( hPanel, i, false )
     next
 end sub
 ```
 
 ### Programmatic changes are silent
 
-`CIconPanel_SetSelected` never fires the SelChange callback, and nothing fires the Click callback
+`PsIconPanel_SetSelected` never fires the SelChange callback, and nothing fires the Click callback
 except a user's matched press and release. The callbacks report **user** action and nothing else,
 which follows Win32's own `TCM_SETCURSEL` / `TCN_SELCHANGE` split — and it is what makes the
 snippet above safe.
 
 ### The font is a paint-time input
 
-`CIconPanel_SetFont` repaints the control but does **not** re-lay it out, because nothing about
+`PsIconPanel_SetFont` repaints the control but does **not** re-lay it out, because nothing about
 the geometry came from the font in the first place. Changing the font changes only the glyphs you
 see inside cells whose size you already declared.
 
@@ -313,7 +313,7 @@ are not.
 One tooltip tool covers the whole control — the items are painted rectangles, not windows — and
 it pulls its text on demand for whichever item is currently hot. Text resolves in this order:
 
-1. The item's own text, from `CIconPanel_SetTooltipText`.
+1. The item's own text, from `PsIconPanel_SetTooltipText`.
 2. The tooltip callback, if one is installed. Consulted **only** for items with no text of their
    own.
 3. Nothing. An item with neither shows no tip; there is no caption to fall back on, because an
@@ -334,15 +334,15 @@ are done.
 Firm properties of the control, not settings:
 
 - **The item set is static.** There is no `InsertItem`, no `DeleteItem`, no `Clear` and no way to
-  reorder. `CIconPanel_AddItem` and `CIconPanel_AddSeparator` are the only way an item comes into
+  reorder. `PsIconPanel_AddItem` and `PsIconPanel_AddSeparator` are the only way an item comes into
   existence, and nothing takes one out again. Build the strip once, then drive it with
   `SetSelected` / `SetEnabled` / `SetGlyph` / `SetItemForeColor`. A strip whose contents change at
   runtime needs a different control.
 - **Nothing is measured.** Cell widths are declared, the layout never takes a device context, and
-  `CIconPanel_SetFont` therefore repaints without re-laying out. A glyph too big for its cell
+  `PsIconPanel_SetFont` therefore repaints without re-laying out. A glyph too big for its cell
   clips.
 - **Separators are decoration, not targets.** They are excluded from hit-testing and from
-  `CIconPanel_FindItemByID` — they all carry id 0, so a search for 0 would otherwise find
+  `PsIconPanel_FindItemByID` — they all carry id 0, so a search for 0 would otherwise find
   decoration — and they have no click behaviour of their own.
 - **When the run is wider than the client area, justification degrades to LEFT and the tail clips
   at the right edge.** Rects are computed honestly rather than squeezed, so the leading icons stay
@@ -360,17 +360,17 @@ Firm properties of the control, not settings:
 - **The right mouse button is reported, never acted on.** A context menu is your business. No
   capture is taken for the right button, so a right-up can arrive without a matching down.
 - **A disabled item still occupies its cell.** It greys out, never goes hot, never presses and
-  swallows clicks — but `CIconPanel_HitTest` still reports it, because a caller asking "what is
+  swallows clicks — but `PsIconPanel_HitTest` still reports it, because a caller asking "what is
   here" deserves the truth. Disabling the item under a live press cancels the press immediately.
-- **`CIconPanel_SetSelected` refuses anything that is not an `IP_KIND_TOGGLE` item** and returns
+- **`PsIconPanel_SetSelected` refuses anything that is not an `IP_KIND_TOGGLE` item** and returns
   FALSE.
 - **The item kind is not validated on add.** Pass something other than the three `IP_KIND_*`
   values and the item is stored, laid out, hit-tested and painted as a non-separator, but a
   completed click on it does nothing.
 - **Item rects are empty until the control has been sized.** The layout bails out when the client
-  area is zero in either dimension, so `CIconPanel_GetItemRect` and `CIconPanel_GetItemIconRect`
-  return empty rectangles between `CIconPanel_Create` and the first `SetWindowPos`.
-  `CIconPanel_GetIdealWidth` is the exception and is valid immediately — it does not depend on the
+  area is zero in either dimension, so `PsIconPanel_GetItemRect` and `PsIconPanel_GetItemIconRect`
+  return empty rectangles between `PsIconPanel_Create` and the first `SetWindowPos`.
+  `PsIconPanel_GetIdealWidth` is the exception and is valid immediately — it does not depend on the
   client area, and it is exactly what you call to decide what that size should be.
 - **A paint callback replaces the built-in painter for every item**, separators included. There is
   no way to override one kind and inherit the rest.
@@ -383,7 +383,7 @@ Firm properties of the control, not settings:
 
 | Function | Description |
 |---|---|
-| `CIconPanel_Create( hWndParent, CtrlID ) as HWND` | Creates the control as a child of `hWndParent` and returns its window handle. `CtrlID` becomes the window's `GWLP_ID`, so `GetDlgItem` finds it. Created zero-sized and hidden — build it, size it with `CIconPanel_GetIdealWidth`, place it with `SetWindowPos`, then `ShowWindow`. There are no child controls. |
+| `PsIconPanel_Create( hWndParent, CtrlID ) as HWND` | Creates the control as a child of `hWndParent` and returns its window handle. `CtrlID` becomes the window's `GWLP_ID`, so `GetDlgItem` finds it. Created zero-sized and hidden — build it, size it with `PsIconPanel_GetIdealWidth`, place it with `SetWindowPos`, then `ShowWindow`. There are no child controls. |
 
 ### Items
 
@@ -391,14 +391,14 @@ Adding is the only way an item comes into existence, and there is no way to remo
 
 | Function | Description |
 |---|---|
-| `CIconPanel_AddItem( hIconPanel, itemKind, Glyph, id = 0, itemData = 0 ) as long` | Appends an item and returns its index, or -1 if the handle is not a CIconPanel. `itemKind` is `IP_KIND_TOGGLE` or `IP_KIND_COMMAND`; `Glyph` is the codepoint(s) to draw, `id` the host command id reported by the Click callback, `itemData` a free-form payload. The kind is not validated. |
-| `CIconPanel_AddSeparator( hIconPanel ) as long` | Appends an `IP_KIND_SEPARATOR` item — no glyph, no id, no click behaviour — and returns its index, or -1. Give it its own padding to size the gap it makes. |
-| `CIconPanel_GetCount( hIconPanel ) as long` | Number of items, separators included. 0 for an invalid handle. |
-| `CIconPanel_IsValidItem( hIconPanel, idx ) as boolean` | TRUE when `idx` is in range. |
-| `CIconPanel_FindItemByID( hIconPanel, id ) as long` | Index of the **first** item carrying that id, or -1. Separators are skipped. |
-| `CIconPanel_HitTest( hIconPanel, x, y ) as long` | The item at that **client-coordinate** point, or -1. Forces any pending layout first, so the answer is always current. Separators are excluded; disabled items are included. |
-| `CIconPanel_GetItemKind( hIconPanel, idx ) as long` | The item's `IP_KIND_*`, or -1 for an invalid index. |
-| `CIconPanel_Refresh( hIconPanel )` | Marks the layout stale and requests a repaint with background erase. Rarely needed — every mutator does this for you. |
+| `PsIconPanel_AddItem( hIconPanel, itemKind, Glyph, id = 0, itemData = 0 ) as long` | Appends an item and returns its index, or -1 if the handle is not a PsIconPanel. `itemKind` is `IP_KIND_TOGGLE` or `IP_KIND_COMMAND`; `Glyph` is the codepoint(s) to draw, `id` the host command id reported by the Click callback, `itemData` a free-form payload. The kind is not validated. |
+| `PsIconPanel_AddSeparator( hIconPanel ) as long` | Appends an `IP_KIND_SEPARATOR` item — no glyph, no id, no click behaviour — and returns its index, or -1. Give it its own padding to size the gap it makes. |
+| `PsIconPanel_GetCount( hIconPanel ) as long` | Number of items, separators included. 0 for an invalid handle. |
+| `PsIconPanel_IsValidItem( hIconPanel, idx ) as boolean` | TRUE when `idx` is in range. |
+| `PsIconPanel_FindItemByID( hIconPanel, id ) as long` | Index of the **first** item carrying that id, or -1. Separators are skipped. |
+| `PsIconPanel_HitTest( hIconPanel, x, y ) as long` | The item at that **client-coordinate** point, or -1. Forces any pending layout first, so the answer is always current. Separators are excluded; disabled items are included. |
+| `PsIconPanel_GetItemKind( hIconPanel, idx ) as long` | The item's `IP_KIND_*`, or -1 for an invalid index. |
+| `PsIconPanel_Refresh( hIconPanel )` | Marks the layout stale and requests a repaint with background erase. Rarely needed — every mutator does this for you. |
 
 ### Item state
 
@@ -406,18 +406,18 @@ Every `Set*` here returns FALSE for an invalid item index.
 
 | Function | Description |
 |---|---|
-| `CIconPanel_GetGlyph( hIconPanel, idx ) as DWSTRING` | The item's glyph, or `""` for an invalid index. |
-| `CIconPanel_SetGlyph( hIconPanel, idx, Glyph ) as boolean` | Sets it and repaints **that item only**. Never re-lays-out: the cell width is declared, so a glyph swap cannot move anything. |
-| `CIconPanel_GetItemID( hIconPanel, idx ) as long` | The host command id, or 0 for an invalid index. |
-| `CIconPanel_SetItemID( hIconPanel, idx, id ) as boolean` | Sets it. No repaint — the id is not drawn. |
-| `CIconPanel_GetItemData( hIconPanel, idx ) as integer` | The free-form host payload, or 0 for an invalid index. |
-| `CIconPanel_SetItemData( hIconPanel, idx, itemData ) as boolean` | Sets it. No repaint. |
-| `CIconPanel_GetSelected( hIconPanel, idx ) as boolean` | TRUE when this TOGGLE item is latched. |
-| `CIconPanel_SetSelected( hIconPanel, idx, isSelected ) as boolean` | Latches or unlatches a TOGGLE item and repaints it. **Silent** — does not fire the SelChange callback, which is what makes it safe to call from inside that handler. Returns FALSE for an invalid index **or for an item that is not `IP_KIND_TOGGLE`**. A no-op returns TRUE without repainting. |
-| `CIconPanel_GetEnabled( hIconPanel, idx ) as boolean` | The item's enabled state. |
-| `CIconPanel_SetEnabled( hIconPanel, idx, isEnabled ) as boolean` | Greys the item, stops it going hot, and makes it swallow clicks. Disabling the item the cursor is on clears the hot state immediately; disabling the item under a live press cancels the press. A no-op returns TRUE without repainting. Works on any kind, separators included. |
-| `CIconPanel_GetTooltipText( hIconPanel, idx ) as DWSTRING` | The item's own tooltip text, or `""`. |
-| `CIconPanel_SetTooltipText( hIconPanel, idx, Text ) as boolean` | Sets the item's own tooltip text. `""` means "ask the tooltip callback instead". |
+| `PsIconPanel_GetGlyph( hIconPanel, idx ) as DWSTRING` | The item's glyph, or `""` for an invalid index. |
+| `PsIconPanel_SetGlyph( hIconPanel, idx, Glyph ) as boolean` | Sets it and repaints **that item only**. Never re-lays-out: the cell width is declared, so a glyph swap cannot move anything. |
+| `PsIconPanel_GetItemID( hIconPanel, idx ) as long` | The host command id, or 0 for an invalid index. |
+| `PsIconPanel_SetItemID( hIconPanel, idx, id ) as boolean` | Sets it. No repaint — the id is not drawn. |
+| `PsIconPanel_GetItemData( hIconPanel, idx ) as integer` | The free-form host payload, or 0 for an invalid index. |
+| `PsIconPanel_SetItemData( hIconPanel, idx, itemData ) as boolean` | Sets it. No repaint. |
+| `PsIconPanel_GetSelected( hIconPanel, idx ) as boolean` | TRUE when this TOGGLE item is latched. |
+| `PsIconPanel_SetSelected( hIconPanel, idx, isSelected ) as boolean` | Latches or unlatches a TOGGLE item and repaints it. **Silent** — does not fire the SelChange callback, which is what makes it safe to call from inside that handler. Returns FALSE for an invalid index **or for an item that is not `IP_KIND_TOGGLE`**. A no-op returns TRUE without repainting. |
+| `PsIconPanel_GetEnabled( hIconPanel, idx ) as boolean` | The item's enabled state. |
+| `PsIconPanel_SetEnabled( hIconPanel, idx, isEnabled ) as boolean` | Greys the item, stops it going hot, and makes it swallow clicks. Disabling the item the cursor is on clears the hot state immediately; disabling the item under a live press cancels the press. A no-op returns TRUE without repainting. Works on any kind, separators included. |
+| `PsIconPanel_GetTooltipText( hIconPanel, idx ) as DWSTRING` | The item's own tooltip text, or `""`. |
+| `PsIconPanel_SetTooltipText( hIconPanel, idx, Text ) as boolean` | Sets the item's own tooltip text. `""` means "ask the tooltip callback instead". |
 
 ### Geometry and layout
 
@@ -426,19 +426,19 @@ and requests a repaint. The per-item setters override the panel value for one it
 
 | Function | Description |
 |---|---|
-| `CIconPanel_GetJustify( hIconPanel ) as long` | Where the run sits: `IP_JUSTIFY_LEFT` (the default), `IP_JUSTIFY_CENTER` or `IP_JUSTIFY_RIGHT`. |
-| `CIconPanel_SetJustify( hIconPanel, nJustify )` | Moves the whole run as one block; re-applied on every resize. Values outside the three constants are ignored. Degrades to LEFT when the run is as wide as the client area or wider. |
-| `CIconPanel_GetIconSize( hIconPanel, byref nIconWidth, byref nIconHeight )` | The panel-wide icon cell size. Both outputs are 0 for an invalid handle. |
-| `CIconPanel_SetIconSize( hIconPanel, nIconWidth, nIconHeight )` | Sets it; each dimension clamped to a minimum of 0. A **layout** input: this is the width every item contributes unless it overrides it. |
-| `CIconPanel_GetPadding( hIconPanel, byref nPadBefore, byref nPadAfter )` | The panel-wide space reserved before and after each icon. Both outputs are 0 for an invalid handle. |
-| `CIconPanel_SetPadding( hIconPanel, nPadBefore, nPadAfter )` | Sets it; each clamped to a minimum of 0. This is the spacing control the layout never touches. |
-| `CIconPanel_GetSeparatorWidth( hIconPanel ) as long` | The thickness of a separator's rule. |
-| `CIconPanel_SetSeparatorWidth( hIconPanel, nSepWidth )` | Sets it; clamped to a minimum of 0. It takes the place of the icon width in a separator's cell. |
-| `CIconPanel_SetItemPadding( hIconPanel, idx, nPadBefore, nPadAfter ) as boolean` | Overrides one item's padding. **Pass -1 for either side to go back to inheriting** the panel's value; anything below -1 is clamped to -1. |
-| `CIconPanel_SetItemIconSize( hIconPanel, idx, nIconWidth, nIconHeight ) as boolean` | Overrides one item's icon size. **Pass 0 for either dimension to go back to inheriting** the panel's value; negatives are clamped to 0. On a separator the width is ignored — its rule is the separator width — but the height still sets how tall the rule stands. |
-| `CIconPanel_GetItemRect( hIconPanel, idx, byref rc ) as boolean` | The item's full cell in client coordinates: the fill rect and the hit rect, spanning the full client height. Forces a pending layout. FALSE for a bad index. |
-| `CIconPanel_GetItemIconRect( hIconPanel, idx, byref rc ) as boolean` | The item's glyph box: the icon size, vertically centred, placed `padBefore` from the cell's left edge. Forces a pending layout. FALSE for a bad index. |
-| `CIconPanel_GetIdealWidth( hIconPanel ) as long` | The summed width of every cell — what the panel would have to be for the run to exactly fill it. Forces a pending layout, and is **valid before the control has ever been sized**, which is what makes it usable for deciding that size. |
+| `PsIconPanel_GetJustify( hIconPanel ) as long` | Where the run sits: `IP_JUSTIFY_LEFT` (the default), `IP_JUSTIFY_CENTER` or `IP_JUSTIFY_RIGHT`. |
+| `PsIconPanel_SetJustify( hIconPanel, nJustify )` | Moves the whole run as one block; re-applied on every resize. Values outside the three constants are ignored. Degrades to LEFT when the run is as wide as the client area or wider. |
+| `PsIconPanel_GetIconSize( hIconPanel, byref nIconWidth, byref nIconHeight )` | The panel-wide icon cell size. Both outputs are 0 for an invalid handle. |
+| `PsIconPanel_SetIconSize( hIconPanel, nIconWidth, nIconHeight )` | Sets it; each dimension clamped to a minimum of 0. A **layout** input: this is the width every item contributes unless it overrides it. |
+| `PsIconPanel_GetPadding( hIconPanel, byref nPadBefore, byref nPadAfter )` | The panel-wide space reserved before and after each icon. Both outputs are 0 for an invalid handle. |
+| `PsIconPanel_SetPadding( hIconPanel, nPadBefore, nPadAfter )` | Sets it; each clamped to a minimum of 0. This is the spacing control the layout never touches. |
+| `PsIconPanel_GetSeparatorWidth( hIconPanel ) as long` | The thickness of a separator's rule. |
+| `PsIconPanel_SetSeparatorWidth( hIconPanel, nSepWidth )` | Sets it; clamped to a minimum of 0. It takes the place of the icon width in a separator's cell. |
+| `PsIconPanel_SetItemPadding( hIconPanel, idx, nPadBefore, nPadAfter ) as boolean` | Overrides one item's padding. **Pass -1 for either side to go back to inheriting** the panel's value; anything below -1 is clamped to -1. |
+| `PsIconPanel_SetItemIconSize( hIconPanel, idx, nIconWidth, nIconHeight ) as boolean` | Overrides one item's icon size. **Pass 0 for either dimension to go back to inheriting** the panel's value; negatives are clamped to 0. On a separator the width is ignored — its rule is the separator width — but the height still sets how tall the rule stands. |
+| `PsIconPanel_GetItemRect( hIconPanel, idx, byref rc ) as boolean` | The item's full cell in client coordinates: the fill rect and the hit rect, spanning the full client height. Forces a pending layout. FALSE for a bad index. |
+| `PsIconPanel_GetItemIconRect( hIconPanel, idx, byref rc ) as boolean` | The item's glyph box: the icon size, vertically centred, placed `padBefore` from the cell's left edge. Forces a pending layout. FALSE for a bad index. |
+| `PsIconPanel_GetIdealWidth( hIconPanel ) as long` | The summed width of every cell — what the panel would have to be for the run to exactly fill it. Forces a pending layout, and is **valid before the control has ever been sized**, which is what makes it usable for deciding that size. |
 
 Both rect queries return empty rectangles until the control has a non-zero client area, because
 placement is impossible before then.
@@ -447,34 +447,34 @@ placement is impossible before then.
 
 | Function | Description |
 |---|---|
-| `CIconPanel_GetColors( hIconPanel, pColors as CICONPANEL_COLORS ptr )` | Fills your struct with the control's current colours. |
-| `CIconPanel_SetColors( hIconPanel, pColors as CICONPANEL_COLORS ptr )` | Copies the whole struct in and repaints with background erase. |
-| `CIconPanel_SetItemForeColor( hIconPanel, idx, clr ) as boolean` | Overrides one item's **idle** glyph colour — a red record dot, a green run arrow. Hot, pressed, selected and disabled keep the panel's colours, so a hover always speaks the panel's language. Repaints that item. |
-| `CIconPanel_ClearItemForeColor( hIconPanel, idx ) as boolean` | Drops the override; the item goes back to the panel's `ForeColor`. Repaints that item. |
-| `CIconPanel_GetFont( hIconPanel ) as HFONT` | The glyph font handle, or 0. |
-| `CIconPanel_SetFont( hIconPanel, hIconFont ) as boolean` | Stores the handle and repaints the whole control. **The caller owns the font** and must keep it alive and destroy it. Does **not** re-lay-out: the font is a paint-time input only. FALSE for an invalid handle. |
-| `CIconPanel_GetTooltipHandle( hIconPanel ) as HWND` | The panel's tooltip window, or 0 — for `TTM_*` messages when you want to restyle or reposition tips. The control owns it and destroys it. |
-| `CIconPanel_SetHoverTime( hIconPanel, milliseconds )` | How long the cursor must rest before a tip appears. Default 250 ms (Win32's own default is 500). Takes effect on the next mouse move over the control. |
+| `PsIconPanel_GetColors( hIconPanel, pColors as PSICONPANEL_COLORS ptr )` | Fills your struct with the control's current colours. |
+| `PsIconPanel_SetColors( hIconPanel, pColors as PSICONPANEL_COLORS ptr )` | Copies the whole struct in and repaints with background erase. |
+| `PsIconPanel_SetItemForeColor( hIconPanel, idx, clr ) as boolean` | Overrides one item's **idle** glyph colour — a red record dot, a green run arrow. Hot, pressed, selected and disabled keep the panel's colours, so a hover always speaks the panel's language. Repaints that item. |
+| `PsIconPanel_ClearItemForeColor( hIconPanel, idx ) as boolean` | Drops the override; the item goes back to the panel's `ForeColor`. Repaints that item. |
+| `PsIconPanel_GetFont( hIconPanel ) as HFONT` | The glyph font handle, or 0. |
+| `PsIconPanel_SetFont( hIconPanel, hIconFont ) as boolean` | Stores the handle and repaints the whole control. **The caller owns the font** and must keep it alive and destroy it. Does **not** re-lay-out: the font is a paint-time input only. FALSE for an invalid handle. |
+| `PsIconPanel_GetTooltipHandle( hIconPanel ) as HWND` | The panel's tooltip window, or 0 — for `TTM_*` messages when you want to restyle or reposition tips. The control owns it and destroys it. |
+| `PsIconPanel_SetHoverTime( hIconPanel, milliseconds )` | How long the cursor must rest before a tip appears. Default 250 ms (Win32's own default is 500). Takes effect on the next mouse move over the control. |
 
 To change one colour, read-modify-write:
 
 ```freebasic
-dim as CICONPANEL_COLORS clrs
-CIconPanel_GetColors( hPanel, @clrs )
+dim as PSICONPANEL_COLORS clrs
+PsIconPanel_GetColors( hPanel, @clrs )
 clrs.BackColor       = BGR( 38, 79,120)
 clrs.BackColorSelect = BGR( 33, 37, 43)
-CIconPanel_SetColors( hPanel, @clrs )
+PsIconPanel_SetColors( hPanel, @clrs )
 ```
 
 ### Callback registration
 
 | Function | Description |
 |---|---|
-| `CIconPanel_SetPaintItemCallback( hIconPanel, usersub )` | Installs a renderer that draws each item **instead of** the built-in painter — every item, separators included. |
-| `CIconPanel_SetMessageCallback( hIconPanel, userfunc )` | Installs an observer for the mouse messages the control handles. |
-| `CIconPanel_SetTooltipCallback( hIconPanel, userfunc )` | Installs the on-demand tooltip text supplier, consulted only for items with no text of their own. |
-| `CIconPanel_SetClickCallback( hIconPanel, usersub )` | Installs the handler told when a **COMMAND** item was clicked. |
-| `CIconPanel_SetSelChangeCallback( hIconPanel, usersub )` | Installs the handler told when the **user** latched or unlatched a TOGGLE item. |
+| `PsIconPanel_SetPaintItemCallback( hIconPanel, usersub )` | Installs a renderer that draws each item **instead of** the built-in painter — every item, separators included. |
+| `PsIconPanel_SetMessageCallback( hIconPanel, userfunc )` | Installs an observer for the mouse messages the control handles. |
+| `PsIconPanel_SetTooltipCallback( hIconPanel, userfunc )` | Installs the on-demand tooltip text supplier, consulted only for items with no text of their own. |
+| `PsIconPanel_SetClickCallback( hIconPanel, usersub )` | Installs the handler told when a **COMMAND** item was clicked. |
+| `PsIconPanel_SetSelChangeCallback( hIconPanel, usersub )` | Installs the handler told when the **user** latched or unlatched a TOGGLE item. |
 
 All five are optional and independent. Setting a callback does not itself repaint, so install them
 before you show the control.
@@ -483,8 +483,8 @@ before you show the control.
 
 ## Colors
 
-The colour surface is one flat struct, `CICONPANEL_COLORS`, with eight `COLORREF` fields. Every
-field ships with a usable dark-theme default, so a control you never call `CIconPanel_SetColors`
+The colour surface is one flat struct, `PSICONPANEL_COLORS`, with eight `COLORREF` fields. Every
+field ships with a usable dark-theme default, so a control you never call `PsIconPanel_SetColors`
 on still looks right. A host on a light theme sets all eight.
 
 | Field | Paints |
@@ -526,7 +526,7 @@ all keep the panel's colours, which is why a hover always looks the same whereve
 | Glyph | The item's text in the resolved fore colour, in the font you supplied, centred horizontally and vertically inside `rcIcon`. Skipped when the glyph is empty. |
 | Separator | Its cell filled with `BackColor`, then `rcIcon` filled with `SeparatorColor` — a rule as wide as the separator width and as tall as an icon. |
 
-All of it goes through `CBufferPaint`: one double buffer, one paint, per repaint. Only the items
+All of it goes through `PsBufferPaint`: one double buffer, one paint, per repaint. Only the items
 intersecting the update rectangle are drawn, which is what makes hover repaints cheap.
 
 ---
@@ -552,9 +552,9 @@ type IP_SelChangeCallbackSub as sub( byval hIconPanel as HWND, byval idx as long
 ```
 
 A **TOGGLE** item latched or unlatched through user interaction. Fires **after** the control's
-state is updated, so `CIconPanel_GetSelected( hIconPanel, idx )` already equals `isSelected`.
+state is updated, so `PsIconPanel_GetSelected( hIconPanel, idx )` already equals `isSelected`.
 
-It does not fire for `CIconPanel_SetSelected`, which is what makes it safe to call that setter
+It does not fire for `PsIconPanel_SetSelected`, which is what makes it safe to call that setter
 from inside this handler — and is how radio behaviour is built.
 
 ### Tooltip
@@ -570,7 +570,7 @@ its own text nor an answer here simply shows no tip.
 ### Paint item
 
 ```freebasic
-type IP_PaintItemCallbackSub as sub( byval p as CICONPANEL_PAINTINFO ptr )
+type IP_PaintItemCallbackSub as sub( byval p as PSICONPANEL_PAINTINFO ptr )
 ```
 
 Draws one item **instead of** the built-in painter. Installing it replaces the built-in rendering
@@ -581,13 +581,13 @@ Paint through `p->b`, the control's double buffer for this repaint — do not to
 The control has already filled the whole client with `BackColor` before any callback runs, so a
 renderer that wants the panel background under an item can simply leave that area alone.
 
-`CICONPANEL_PAINTINFO` carries everything you need:
+`PSICONPANEL_PAINTINFO` carries everything you need:
 
 | Field | Meaning |
 |---|---|
 | `hIconPanel` | The control, so the callback can query it |
 | `itemID` | The item's index (a model index) |
-| `b` | The control's `CBufferPaint` for this repaint (borrowed, not owned) |
+| `b` | The control's `PsBufferPaint` for this repaint (borrowed, not owned) |
 | `itemKind` | `IP_KIND_TOGGLE`, `IP_KIND_COMMAND` or `IP_KIND_SEPARATOR` |
 | `rc` | The full cell — padding included, full client height. This is what the built-in painter fills |
 | `rcIcon` | The glyph box: draw the icon in this |
@@ -599,7 +599,7 @@ renderer that wants the panel background under an item can simply leave that are
 
 Two contracts worth honouring:
 
-- **Draw the glyph with the same font you handed to `CIconPanel_SetFont`**, sized to fit
+- **Draw the glyph with the same font you handed to `PsIconPanel_SetFont`**, sized to fit
   `rcIcon`. `rcIcon` is a layout cell, not a measurement of your glyph: nothing here measures
   text, so a font too large for the cell clips.
 - **Fill `p->rc`, not `p->rcIcon`**, if you are filling at all. `rc` includes the item's padding
@@ -617,13 +617,13 @@ That is deliberate: the press should stop *looking* armed the moment the cursor 
 ### Message
 
 ```freebasic
-type IP_MessageCallbackFunc as function( byval m as CICONPANEL_MESSAGEINFO ptr ) as boolean
+type IP_MessageCallbackFunc as function( byval m as PSICONPANEL_MESSAGEINFO ptr ) as boolean
 ```
 
 Observes mouse messages as they arrive. Return TRUE to suppress the control's own handling of
 that message, FALSE to let it proceed.
 
-`CICONPANEL_MESSAGEINFO`:
+`PSICONPANEL_MESSAGEINFO`:
 
 | Field | Meaning |
 |---|---|
@@ -653,13 +653,13 @@ raised.
 ## Constants
 
 ```freebasic
-enum CICONPANEL_JUSTIFY
+enum PSICONPANEL_JUSTIFY
     IP_JUSTIFY_LEFT = 0     ' the default
     IP_JUSTIFY_CENTER
     IP_JUSTIFY_RIGHT
 end enum
 
-enum CICONPANEL_ITEMKIND
+enum PSICONPANEL_ITEMKIND
     IP_KIND_TOGGLE = 0      ' latching
     IP_KIND_COMMAND         ' momentary
     IP_KIND_SEPARATOR       ' a drawn rule; not hit-testable
@@ -668,10 +668,10 @@ end enum
 
 | Constant | Value | Meaning |
 |---|---:|---|
-| `CICONPANEL_DEFAULT_ICONWIDTH` | 20 | Default icon cell width, DPI-scaled at create |
-| `CICONPANEL_DEFAULT_ICONHEIGHT` | 20 | Default icon cell height, DPI-scaled at create |
-| `CICONPANEL_DEFAULT_PADBEFORE` | 4 | Default space before each icon, DPI-scaled at create |
-| `CICONPANEL_DEFAULT_PADAFTER` | 4 | Default space after each icon, DPI-scaled at create |
-| `CICONPANEL_DEFAULT_SEPWIDTH` | 1 | Default separator rule thickness, DPI-scaled at create |
+| `PSICONPANEL_DEFAULT_ICONWIDTH` | 20 | Default icon cell width, DPI-scaled at create |
+| `PSICONPANEL_DEFAULT_ICONHEIGHT` | 20 | Default icon cell height, DPI-scaled at create |
+| `PSICONPANEL_DEFAULT_PADBEFORE` | 4 | Default space before each icon, DPI-scaled at create |
+| `PSICONPANEL_DEFAULT_PADAFTER` | 4 | Default space after each icon, DPI-scaled at create |
+| `PSICONPANEL_DEFAULT_SEPWIDTH` | 1 | Default separator rule thickness, DPI-scaled at create |
 | `IDT_CICONPANEL_HOTTRACK` | `&hCB50` | Timer id for the hover safety net. Timer ids are per-window, so every instance can share it |
-| `CICONPANEL_HOTTRACK_MS` | 100 | Poll interval of that timer, in milliseconds |
+| `PSICONPANEL_HOTTRACK_MS` | 100 | Poll interval of that timer, in milliseconds |

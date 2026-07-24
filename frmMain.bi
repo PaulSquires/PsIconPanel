@@ -1,4 +1,4 @@
-'    CIconPanel - reusable owner-drawn icon panel control
+'    PsIconPanel - reusable owner-drawn icon panel control
 '    Copyright (C) 2016-2026 Paul Squires, PlanetSquires Software
 '
 '    This program is free software: you can redistribute it and/or modify
