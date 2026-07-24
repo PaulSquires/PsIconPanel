@@ -1,12 +1,12 @@
 ﻿#include once "frmMain.bi"
-#include once "CBufferPaint.bi"
+#include once "PsBufferPaint.bi"
 
 
 ' ========================================================================================
 ' Process WM_PAINT message for window/dialog: frmMain
 ' ========================================================================================
 function frmMain_OnPaint( byval hwnd as HWND ) as LRESULT
-    dim as CBufferPaint b
+    dim as PsBufferPaint b
 
     b.BeginDoubleBuffer(hwnd)
     b.SetBackColor( theme.BackColorPanel )
@@ -141,36 +141,36 @@ end function
 
 
 ' ========================================================================================
-' CIconPanel_ClickCallback  -- a COMMAND item was clicked (matched press + release).
+' PsIconPanel_ClickCallback  -- a COMMAND item was clicked (matched press + release).
 ' ========================================================================================
-sub CIconPanel_ClickCallback( byval hCtl as HWND, byval idx as long, byval id as long )
+sub PsIconPanel_ClickCallback( byval hCtl as HWND, byval idx as long, byval id as long )
     print PanelName(hCtl) & " click   idx=" & str(idx) & " id=" & str(id)
 end sub
 
 
 ' ========================================================================================
-' CIconPanel_SelChangeCallback  -- a TOGGLE item latched or unlatched. Never fires for
-' the programmatic CIconPanel_SetSelected below, which is exactly the point.
+' PsIconPanel_SelChangeCallback  -- a TOGGLE item latched or unlatched. Never fires for
+' the programmatic PsIconPanel_SetSelected below, which is exactly the point.
 ' ========================================================================================
-sub CIconPanel_SelChangeCallback( byval hCtl as HWND, byval idx as long, byval isSelected as boolean )
+sub PsIconPanel_SelChangeCallback( byval hCtl as HWND, byval idx as long, byval isSelected as boolean )
     print PanelName(hCtl) & " toggle  idx=" & str(idx) & " selected=" & str(isSelected)
 end sub
 
 
 ' ========================================================================================
-' CIconPanel_TooltipCallback  -- consulted only for items with no tooltip text of their
+' PsIconPanel_TooltipCallback  -- consulted only for items with no tooltip text of their
 ' own (here: the Settings item), which is how both tooltip paths get exercised.
 ' ========================================================================================
-function CIconPanel_TooltipCallback( byval hCtl as HWND, byval idx as long ) as DWSTRING
+function PsIconPanel_TooltipCallback( byval hCtl as HWND, byval idx as long ) as DWSTRING
     return "on-demand tip for item " & idx
 end function
 
 
 ' ========================================================================================
-' CIconPanel_MessageCallback  -- right-click is reported, never acted on: a context menu
+' PsIconPanel_MessageCallback  -- right-click is reported, never acted on: a context menu
 ' is the host's business.
 ' ========================================================================================
-function CIconPanel_MessageCallback( byval m as CICONPANEL_MESSAGEINFO ptr ) as boolean
+function PsIconPanel_MessageCallback( byval m as PSICONPANEL_MESSAGEINFO ptr ) as boolean
     if m->uMsg = WM_RBUTTONUP then
         print PanelName(m->hIconPanel) & " rclick  idx=" & str(m->idx)
     end if
@@ -180,14 +180,14 @@ end function
 
 
 ' ========================================================================================
-' CIconPanel_PillPaintCallback  -- the third panel's own renderer, REPLACING the built-in
+' PsIconPanel_PillPaintCallback  -- the third panel's own renderer, REPLACING the built-in
 ' painter for every one of its items. It draws the compact "pill" highlight the built-in
 ' painter deliberately does not: fill an inflated rcIcon instead of the whole cell.
 '
 ' Note it must still paint p->rc's background itself -- the control background-filled the
 ' client before the callbacks ran, so here that means simply leaving it alone.
 ' ========================================================================================
-sub CIconPanel_PillPaintCallback( byval p as CICONPANEL_PAINTINFO ptr )
+sub PsIconPanel_PillPaintCallback( byval p as PSICONPANEL_PAINTINFO ptr )
 
     if p->itemKind = IP_KIND_SEPARATOR then
         p->b->SetBackColor( theme.ForeColorScrollBar )
@@ -235,38 +235,38 @@ private sub BuildToolbar( byval hCtl as HWND, byval pWindow as CWindow ptr )
 
     dim as long idx
 
-    idx = CIconPanel_AddItem( hCtl, IP_KIND_COMMAND, wchr(&hE74E), IDM_SAVE )
-    CIconPanel_SetTooltipText( hCtl, idx, "Save" )
+    idx = PsIconPanel_AddItem( hCtl, IP_KIND_COMMAND, wchr(&hE74E), IDM_SAVE )
+    PsIconPanel_SetTooltipText( hCtl, idx, "Save" )
 
-    idx = CIconPanel_AddItem( hCtl, IP_KIND_COMMAND, wchr(&hE72C), IDM_REFRESH )
-    CIconPanel_SetTooltipText( hCtl, idx, "Refresh" )
+    idx = PsIconPanel_AddItem( hCtl, IP_KIND_COMMAND, wchr(&hE72C), IDM_REFRESH )
+    PsIconPanel_SetTooltipText( hCtl, idx, "Refresh" )
     ' Per-item idle colour: hot / pressed still use the panel's colours.
-    CIconPanel_SetItemForeColor( hCtl, idx, BGR(126,190,126) )
+    PsIconPanel_SetItemForeColor( hCtl, idx, BGR(126,190,126) )
 
-    CIconPanel_AddSeparator( hCtl )
+    PsIconPanel_AddSeparator( hCtl )
 
-    idx = CIconPanel_AddItem( hCtl, IP_KIND_TOGGLE, wchr(&hE734), IDM_FAVOURITE )
-    CIconPanel_SetTooltipText( hCtl, idx, "Favourite" )
+    idx = PsIconPanel_AddItem( hCtl, IP_KIND_TOGGLE, wchr(&hE734), IDM_FAVOURITE )
+    PsIconPanel_SetTooltipText( hCtl, idx, "Favourite" )
     ' Programmatic and therefore SILENT: no SelChangeCallback for this.
-    CIconPanel_SetSelected( hCtl, idx, true )
+    PsIconPanel_SetSelected( hCtl, idx, true )
 
-    idx = CIconPanel_AddItem( hCtl, IP_KIND_TOGGLE, wchr(&hE72E), IDM_READONLY )
-    CIconPanel_SetTooltipText( hCtl, idx, "Read only" )
+    idx = PsIconPanel_AddItem( hCtl, IP_KIND_TOGGLE, wchr(&hE72E), IDM_READONLY )
+    PsIconPanel_SetTooltipText( hCtl, idx, "Read only" )
 
-    idx = CIconPanel_AddItem( hCtl, IP_KIND_TOGGLE, wchr(&hE721), IDM_FIND )
-    CIconPanel_SetTooltipText( hCtl, idx, "Find panel" )
+    idx = PsIconPanel_AddItem( hCtl, IP_KIND_TOGGLE, wchr(&hE721), IDM_FIND )
+    PsIconPanel_SetTooltipText( hCtl, idx, "Find panel" )
 
-    CIconPanel_AddSeparator( hCtl )
+    PsIconPanel_AddSeparator( hCtl )
 
-    idx = CIconPanel_AddItem( hCtl, IP_KIND_COMMAND, wchr(&hE74D), IDM_DELETE )
-    CIconPanel_SetTooltipText( hCtl, idx, "Delete (disabled)" )
-    CIconPanel_SetEnabled( hCtl, idx, false )
+    idx = PsIconPanel_AddItem( hCtl, IP_KIND_COMMAND, wchr(&hE74D), IDM_DELETE )
+    PsIconPanel_SetTooltipText( hCtl, idx, "Delete (disabled)" )
+    PsIconPanel_SetEnabled( hCtl, idx, false )
 
     ' Oversized, with wider padding of its own: proves a per-item cell survives the
     ' justification untouched.
-    idx = CIconPanel_AddItem( hCtl, IP_KIND_COMMAND, wchr(&hE713), IDM_SETTINGS )
-    CIconPanel_SetItemIconSize( hCtl, idx, pWindow->ScaleX(30), pWindow->ScaleY(30) )
-    CIconPanel_SetItemPadding( hCtl, idx, pWindow->ScaleX(14), pWindow->ScaleX(14) )
+    idx = PsIconPanel_AddItem( hCtl, IP_KIND_COMMAND, wchr(&hE713), IDM_SETTINGS )
+    PsIconPanel_SetItemIconSize( hCtl, idx, pWindow->ScaleX(30), pWindow->ScaleY(30) )
+    PsIconPanel_SetItemPadding( hCtl, idx, pWindow->ScaleX(14), pWindow->ScaleX(14) )
     ' No tooltip text: this one goes through the on-demand callback instead.
 
 end sub
@@ -298,39 +298,39 @@ function frmMain_Show( byval hWndParent as HWND ) as LRESULT
     ' items, their own colours, their own hover and press state, and the third one its own
     ' renderer. Hovering one must never light up another.
     ' ------------------------------------------------------------------------------------
-    HWND_ICONPANEL_LEFT   = CIconPanel_Create( HWND_FRMMAIN, IDC_FRMMAIN_ICONPANEL_LEFT )
-    HWND_ICONPANEL_CENTER = CIconPanel_Create( HWND_FRMMAIN, IDC_FRMMAIN_ICONPANEL_CENTER )
-    HWND_ICONPANEL_RIGHT  = CIconPanel_Create( HWND_FRMMAIN, IDC_FRMMAIN_ICONPANEL_RIGHT )
+    HWND_ICONPANEL_LEFT   = PsIconPanel_Create( HWND_FRMMAIN, IDC_FRMMAIN_ICONPANEL_LEFT )
+    HWND_ICONPANEL_CENTER = PsIconPanel_Create( HWND_FRMMAIN, IDC_FRMMAIN_ICONPANEL_CENTER )
+    HWND_ICONPANEL_RIGHT  = PsIconPanel_Create( HWND_FRMMAIN, IDC_FRMMAIN_ICONPANEL_RIGHT )
 
     dim as HWND hPanels(0 to 2) = { HWND_ICONPANEL_LEFT, HWND_ICONPANEL_CENTER, HWND_ICONPANEL_RIGHT }
     dim as long nJustify(0 to 2) = { IP_JUSTIFY_LEFT, IP_JUSTIFY_CENTER, IP_JUSTIFY_RIGHT }
 
     for i as long = 0 to 2
-        CIconPanel_SetFont( hPanels(i), ghFont(SYMBOLFONT_12) )
-        CIconPanel_SetJustify( hPanels(i), nJustify(i) )
-        CIconPanel_SetMessageCallback( hPanels(i), @CIconPanel_MessageCallback )
-        CIconPanel_SetTooltipCallback( hPanels(i), @CIconPanel_TooltipCallback )
-        CIconPanel_SetClickCallback( hPanels(i), @CIconPanel_ClickCallback )
-        CIconPanel_SetSelChangeCallback( hPanels(i), @CIconPanel_SelChangeCallback )
+        PsIconPanel_SetFont( hPanels(i), ghFont(SYMBOLFONT_12) )
+        PsIconPanel_SetJustify( hPanels(i), nJustify(i) )
+        PsIconPanel_SetMessageCallback( hPanels(i), @PsIconPanel_MessageCallback )
+        PsIconPanel_SetTooltipCallback( hPanels(i), @PsIconPanel_TooltipCallback )
+        PsIconPanel_SetClickCallback( hPanels(i), @PsIconPanel_ClickCallback )
+        PsIconPanel_SetSelChangeCallback( hPanels(i), @PsIconPanel_SelChangeCallback )
         BuildToolbar( hPanels(i), pWindow )
     next
 
     ' The middle panel gets its own colours and noticeably wider authored spacing, so the
     ' three runs are visibly different widths while obeying the same layout rule.
-    dim as CICONPANEL_COLORS clrs
-    CIconPanel_GetColors( HWND_ICONPANEL_CENTER, @clrs )
+    dim as PSICONPANEL_COLORS clrs
+    PsIconPanel_GetColors( HWND_ICONPANEL_CENTER, @clrs )
     clrs.BackColor       = theme.BackColorSelect
     clrs.BackColorHot    = theme.FocusAccent
     clrs.BackColorSelect = theme.BackColor
-    CIconPanel_SetColors( HWND_ICONPANEL_CENTER, @clrs )
-    CIconPanel_SetPadding( HWND_ICONPANEL_CENTER, pWindow->ScaleX(12), pWindow->ScaleX(12) )
+    PsIconPanel_SetColors( HWND_ICONPANEL_CENTER, @clrs )
+    PsIconPanel_SetPadding( HWND_ICONPANEL_CENTER, pWindow->ScaleX(12), pWindow->ScaleX(12) )
 
     ' The third panel replaces the built-in painter entirely.
-    CIconPanel_SetPaintItemCallback( HWND_ICONPANEL_RIGHT, @CIconPanel_PillPaintCallback )
+    PsIconPanel_SetPaintItemCallback( HWND_ICONPANEL_RIGHT, @PsIconPanel_PillPaintCallback )
 
-    print "ideal widths: left=" & str(CIconPanel_GetIdealWidth(HWND_ICONPANEL_LEFT)) & _
-          " center="            & str(CIconPanel_GetIdealWidth(HWND_ICONPANEL_CENTER)) & _
-          " right="             & str(CIconPanel_GetIdealWidth(HWND_ICONPANEL_RIGHT))
+    print "ideal widths: left=" & str(PsIconPanel_GetIdealWidth(HWND_ICONPANEL_LEFT)) & _
+          " center="            & str(PsIconPanel_GetIdealWidth(HWND_ICONPANEL_CENTER)) & _
+          " right="             & str(PsIconPanel_GetIdealWidth(HWND_ICONPANEL_RIGHT))
 
     frmMain_PositionIconPanels( HWND_FRMMAIN )
     for i as long = 0 to 2
