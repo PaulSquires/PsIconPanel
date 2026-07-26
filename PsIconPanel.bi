@@ -2,6 +2,9 @@
 #pragma once
 
 #include once "PsBufferPaint.bi"
+' An item can show a real image file (.ico/.png/.bmp/.jpg) instead of a Fluent glyph.
+' PsImage owns the decode; PsBufferPaint.PaintImage draws it. See PsIconPanel_SetImage.
+#include once "PsImage.bi"
 
 ' Polling timer that guarantees hot-tracking is cleared when the mouse leaves the
 ' control. WM_MOUSELEAVE (TME_LEAVE) is not reliably delivered on fast exits, so a
@@ -76,6 +79,11 @@ end type
 type PSICONPANEL_ITEM
     itemKind      as long = IP_KIND_TOGGLE
     wszGlyph      as DWSTRING          ' the Segoe Fluent Icons codepoint(s) to draw
+    ' An image drawn in the icon cell INSTEAD OF the glyph. The control OWNS this PsImage and
+    ' frees it in WM_NCDESTROY. The item slot is glyph OR image: PsIconPanel_SetImage clears
+    ' wszGlyph, PsIconPanel_SetGlyph frees pImage. NULL = no image. It fits the SAME declared
+    ' icon cell a glyph would, so an image needs no layout change.
+    pImage        as PsImage ptr
     wszTooltip    as DWSTRING          ' "" = ask TooltipCallback, then show nothing
     id            as long = 0          ' host command id, reported by ClickCallback
     itemData      as integer = 0       ' free-form host payload
@@ -113,6 +121,9 @@ type PSICONPANEL_PAINTINFO
                                           '   goes false without ending the gesture)
     isEnabled   as boolean
     wszGlyph    as DWSTRING
+    ' Resolved image handle for this item's cell, or NULL. When set, draw this image via
+    ' p->b->PaintImage INSTEAD OF the glyph -- a custom painter should honour it, image first.
+    pImage      as CGpImage ptr
 end type
 
 type PSICONPANEL_MESSAGEINFO
@@ -498,6 +509,9 @@ declare function PsIconPanel_HitTest( byval hIconPanel as HWND, byval x as long,
 declare function PsIconPanel_GetItemKind( byval hIconPanel as HWND, byval idx as long ) as long
 declare function PsIconPanel_GetGlyph( byval hIconPanel as HWND, byval idx as long ) as DWSTRING
 declare function PsIconPanel_SetGlyph( byval hIconPanel as HWND, byval idx as long, byval Glyph as DWSTRING ) as boolean
+' Load an image file (.ico/.png/.bmp/.jpg) into an item's cell, replacing its glyph. "" removes
+' it. Returns TRUE on a successful load. The image fits the item's existing icon cell.
+declare function PsIconPanel_SetImage( byval hIconPanel as HWND, byval idx as long, byval Path as DWSTRING ) as boolean
 declare function PsIconPanel_GetItemID( byval hIconPanel as HWND, byval idx as long ) as long
 declare function PsIconPanel_SetItemID( byval hIconPanel as HWND, byval idx as long, byval id as long ) as boolean
 declare function PsIconPanel_GetItemData( byval hIconPanel as HWND, byval idx as long ) as integer

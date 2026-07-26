@@ -4,6 +4,9 @@
 ''
 
 #include once "PsIconPanel.bi"
+' Image loader implementation, pulled in here so a host needs no extra include line
+' (#include once guards it if the host includes it too).
+#include once "PsImage.inc"
 
 
 function GetIconPanelPointer( byval hIconPanel as HWND ) as PSICONPANEL ptr
@@ -165,9 +168,41 @@ function PsIconPanel_SetGlyph( byval hIconPanel as HWND, byval idx as long, byva
     dim as PSICONPANEL ptr pIcon = GetIconPanelPointer(hIconPanel)
     if pIcon = null then return false
     if pIcon->IsValidItem(idx) = false then return false
-    pIcon->GetItem(idx)->wszGlyph = Glyph
+    dim as PSICONPANEL_ITEM ptr pit = pIcon->GetItem(idx)
+    pit->wszGlyph = Glyph
+    ' Glyph OR image: setting an actual glyph frees any image on this item.
+    if (len( Glyph ) > 0) andalso (pit->pImage <> 0) then
+        delete pit->pImage : pit->pImage = 0
+    end if
     PsIconPanel_InvalidateItem( pIcon, idx )
     return true
+end function
+
+' ========================================================================================
+' Load an image into an item's cell, replacing its glyph. "" removes it. TRUE on a
+' successful load; on failure the empty image is dropped so nothing draws.
+' ========================================================================================
+function PsIconPanel_SetImage( byval hIconPanel as HWND, byval idx as long, byval Path as DWSTRING ) as boolean
+    dim as PSICONPANEL ptr pIcon = GetIconPanelPointer(hIconPanel)
+    if pIcon = null then return false
+    if pIcon->IsValidItem(idx) = false then return false
+    dim as PSICONPANEL_ITEM ptr pit = pIcon->GetItem(idx)
+
+    if len( Path ) = 0 then
+        if pit->pImage then delete pit->pImage : pit->pImage = 0
+        PsIconPanel_InvalidateItem( pIcon, idx )
+        return false
+    end if
+
+    if pit->pImage = 0 then pit->pImage = new PsImage
+    dim as long bOK = pit->pImage->Load( Path )
+    if bOK = 0 then
+        delete pit->pImage : pit->pImage = 0
+    else
+        pit->wszGlyph = ""                 ' glyph OR image
+    end if
+    PsIconPanel_InvalidateItem( pIcon, idx )
+    return (bOK <> 0)
 end function
 
 
@@ -659,7 +694,10 @@ private sub PsIconPanel_PaintItemDefault( _
         b->SetColors( foreclr, backclr )
         b->PaintRect( @.rc )             ' fill the WHOLE cell, padding included
 
-        if len(.wszGlyph) then
+        ' Image first, else glyph. Both draw into the same declared icon cell (rcIcon).
+        if (.pImage <> 0) andalso (.pImage->IsValid() <> 0) then
+            b->PaintImage( .pImage->Image(), @.rcIcon, PS_IMGFIT_ASPECT )
+        elseif len(.wszGlyph) then
             b->SetFont( pIcon->hIconFont )
             ' PaintText already adds DT_VCENTER / DT_SINGLELINE / DT_NOPREFIX.
             b->PaintText( .wszGlyph, @.rcIcon, DT_CENTER )
@@ -721,6 +759,8 @@ function PsIconPanel_OnPaint( byval hwnd as HWND ) as LRESULT
             p.isPressed  = isPressed
             p.isEnabled  = pIcon->items(i).isEnabled
             p.wszGlyph   = pIcon->items(i).wszGlyph
+            dim as PSICONPANEL_ITEM ptr pit = @pIcon->items(i)
+            p.pImage     = iif( (pit->pImage <> 0) andalso (pit->pImage->IsValid() <> 0), pit->pImage->Image(), cast( CGpImage ptr, 0 ) )
             pIcon->PaintItemCallback( @p )
         else
             PsIconPanel_PaintItemDefault( pIcon, @b, i, isHot, isPressed )
@@ -995,6 +1035,10 @@ function PsIconPanel_WndProc( _
         ' Delete the stored icon panel data pointer
         if pIcon then
             if IsWindow(pIcon->hToolTip) then DestroyWindow(pIcon->hToolTip)
+            ' Free any per-item images we own (raw pointers, not auto-freed by delete pIcon).
+            for i as long = 0 to pIcon->itemCount - 1
+                if pIcon->items(i).pImage then delete pIcon->items(i).pImage : pIcon->items(i).pImage = 0
+            next
             delete(pIcon)
         end if
 

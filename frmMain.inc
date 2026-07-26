@@ -223,6 +223,35 @@ sub PsIconPanel_PillPaintCallback( byval p as PSICONPANEL_PAINTINFO ptr )
 end sub
 
 
+' Generate a small multi-colour PNG next to the exe, so BuildToolbar can show a REAL image
+' item beside the Fluent-glyph items. Procedural, so the repo commits no binary asset.
+private sub MakeSampleIconFile( byref wszPath as wstring )
+    const S = 32
+    dim as BITMAPINFO bi
+    bi.bmiHeader.biSize        = sizeof( BITMAPINFOHEADER )
+    bi.bmiHeader.biWidth       = S
+    bi.bmiHeader.biHeight      = -S
+    bi.bmiHeader.biPlanes      = 1
+    bi.bmiHeader.biBitCount    = 32
+    bi.bmiHeader.biCompression = BI_RGB
+    dim as ulong ptr p
+    dim as HBITMAP hbm = CreateDIBSection( null, @bi, DIB_RGB_COLORS, cast(any ptr ptr, @p), null, 0 )
+    if hbm andalso p then
+        for y as long = 0 to S - 1
+            for x as long = 0 to S - 1
+                dim as ulong c = &hFF3399EE
+                if (((x \ 8) + (y \ 8)) and 1) then c = &hFFEE9933
+                p[y * S + x] = c
+            next
+        next
+        dim as PsImage tmp
+        tmp.LoadFromBitmap( hbm )
+        if tmp.IsValid() then AfxGdipSaveImageToPng( tmp.Image()->m_pImage, wszPath )
+    end if
+    if hbm then DeleteObject( hbm )
+end sub
+
+
 ' ========================================================================================
 ' Fill one panel with the same representative toolbar: two commands, a separator, three
 ' independent toggles, a separator, a disabled command, and an oversized command.
@@ -242,6 +271,12 @@ private sub BuildToolbar( byval hCtl as HWND, byval pWindow as CWindow ptr )
     PsIconPanel_SetTooltipText( hCtl, idx, "Refresh" )
     ' Per-item idle colour: hot / pressed still use the panel's colours.
     PsIconPanel_SetItemForeColor( hCtl, idx, BGR(126,190,126) )
+
+    ' A REAL image item (a .png), sitting in the same cell a glyph would. MakeSampleIconFile
+    ' wrote sample_icon.png in frmMain_Show before any panel was populated.
+    idx = PsIconPanel_AddItem( hCtl, IP_KIND_COMMAND, "", IDM_REFRESH )
+    PsIconPanel_SetImage( hCtl, idx, "sample_icon.png" )
+    PsIconPanel_SetTooltipText( hCtl, idx, "PNG image icon" )
 
     PsIconPanel_AddSeparator( hCtl )
 
@@ -292,6 +327,10 @@ function frmMain_Show( byval hWndParent as HWND ) as LRESULT
             null, APPNAME, @frmMain_WndProc, _
             100, 100, 900, 300 _
             )
+
+    ' Write the sample .png once, before any panel is populated (a panel that has loaded it
+    ' holds the file open, so it must exist and be unlocked first).
+    MakeSampleIconFile( "sample_icon.png" )
 
     ' ------------------------------------------------------------------------------------
     ' Three independent instances, one per justification. Nothing is shared: their own

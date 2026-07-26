@@ -17,3 +17,6 @@ desktop.ini
 # Internal design / planning notes. NEVER published: these repos are public on
 # GitHub and clients can browse them.
 REFACTOR_PLAN*.md
+
+# demo scratch image
+sample_icon.png
