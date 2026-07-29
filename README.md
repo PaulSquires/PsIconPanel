@@ -42,6 +42,9 @@ The same seven items laid out in three panels: left-justified, centre-justified 
 | `PsIconPanel.inc` | Implementation |
 | `PsBufferPaint.bi` | The flicker-free drawing surface the control paints through |
 | `PsBufferPaint.inc` | Its implementation |
+| `PsImage.bi` / `PsImage.inc` | The image loader behind `PsIconPanel_SetImage`. Required even if you only ever use glyphs: `PsIconPanel.bi` includes it. |
+| `PsTipHost.bi` / `PsTipHost.inc` | The tooltip backend switch — see *Tooltips: two backends* |
+| `PsTooltip.bi` / `PsTooltip.inc` | The owner-drawn tooltip. Required even if you never switch to it: `PsTipHost.inc` includes it. |
 
 **AfxNova is required.** The control is built on `CWindow`, and `PsBufferPaint` draws through
 `AfxNova\CGdiPlus.inc`. Sources include AfxNova relative to the workspace root
@@ -51,9 +54,10 @@ The same seven items laid out in three panels: left-justified, centre-justified 
 fbc64.exe -i "C:\dev" main.bas
 ```
 
-**Include order.** `PsIconPanel.inc` pulls in its own `.bi`, which pulls in `PsBufferPaint.bi`.
-The two implementation files are included in this order, after AfxNova and after
-`using AfxNova`:
+**Include order.** `PsIconPanel.inc` pulls in its own `.bi` (which pulls in `PsBufferPaint.bi`,
+`PsImage.bi` and `PsTipHost.bi`) and then `PsTipHost.inc` and `PsImage.inc` themselves — so
+adopting the image and tooltip features adds no include line of your own. The two implementation
+files you write are included in this order, after AfxNova and after `using AfxNova`:
 
 ```freebasic
 #include once "windows.bi"
@@ -270,6 +274,28 @@ The consequence to plan for: `rcIcon` is a **layout** cell, not a measurement of
 Nothing measures the text, so a font too large for the cell simply clips. Pick a point size that
 fits the icon size you asked for.
 
+### An icon cell holds a glyph or an image, never both
+
+`PsIconPanel_SetImage` takes a file path — `.ico`, `.png`, `.bmp`, `.jpg` — and draws that image
+in the item's icon cell **instead of** a glyph. The setters keep the invariant themselves: a
+successful `SetImage` clears that item's glyph string, and `PsIconPanel_SetGlyph` with a non-empty
+glyph frees that item's image. You never have to clear one before setting the other.
+
+The image is drawn into the **same declared cell** a glyph would have used, aspect ratio
+preserved, vertically and horizontally centred in `rcIcon`. Because every cell width is declared
+rather than measured, switching an item from a glyph to an image changes **no geometry at all** —
+the ideal width and the cell rect are identical either way, and no layout pass is needed.
+
+The control **owns** the images it loads. They are freed when the window is destroyed, when you
+pass `""`, when the load fails, and when you set a glyph on that item. You pass a path and nothing
+else; there is no handle for you to keep alive or release.
+
+```freebasic
+if PsIconPanel_SetImage( hPanel, idx, ExePath() & "\save.png" ) = false then
+    PsIconPanel_SetGlyph( hPanel, idx, wchr(&hE74E) )    ' fall back to the glyph
+end if
+```
+
 ### Pixels, and who scales them
 
 Only the creation-time defaults are DPI-scaled for you:
@@ -321,11 +347,16 @@ it pulls its text on demand for whichever item is currently hot. Text resolves i
 
 Moving to a different item pops the current tip, so the next hover re-queries.
 
+Tips are drawn by one of two backends — the comctl32 tooltip by default, or PsTooltip if you ask
+for it with `PsIconPanel_SetTooltipMode`. The choice changes only how a tip is drawn and driven,
+never what it says: the resolution order above is the same on both. See *Tooltips: two backends*.
+
 ### Lifetime
 
 The control frees itself when its window is destroyed, and destroys its own tooltip window with
-it. It owns no host resources: the `HFONT` you passed in stays yours. Destroy the parent and you
-are done.
+it, whichever tooltip backend it is on. It also frees every image loaded through
+`PsIconPanel_SetImage`. It owns no host resources: the `HFONT` you passed in stays yours. Destroy
+the parent and you are done.
 
 ---
 
@@ -407,7 +438,8 @@ Every `Set*` here returns FALSE for an invalid item index.
 | Function | Description |
 |---|---|
 | `PsIconPanel_GetGlyph( hIconPanel, idx ) as DWSTRING` | The item's glyph, or `""` for an invalid index. |
-| `PsIconPanel_SetGlyph( hIconPanel, idx, Glyph ) as boolean` | Sets it and repaints **that item only**. Never re-lays-out: the cell width is declared, so a glyph swap cannot move anything. |
+| `PsIconPanel_SetGlyph( hIconPanel, idx, Glyph ) as boolean` | Sets it and repaints **that item only**. Never re-lays-out: the cell width is declared, so a glyph swap cannot move anything. A non-empty glyph frees any image on that item — the cell holds one or the other. |
+| `PsIconPanel_SetImage( hIconPanel, idx, Path ) as boolean` | Loads an image file (`.ico` / `.png` / `.bmp` / `.jpg`) into the item's icon cell **instead of** its glyph, drawn into the same declared cell with its aspect preserved. TRUE on a successful load, and on success it clears the item's glyph string; on failure it drops the half-built image so nothing draws. `""` removes any image and returns **FALSE** — a FALSE return is therefore "no image on this item", not necessarily an error. Repaints that item only; never re-lays-out, because the cell width is declared. The control owns the image and frees it. |
 | `PsIconPanel_GetItemID( hIconPanel, idx ) as long` | The host command id, or 0 for an invalid index. |
 | `PsIconPanel_SetItemID( hIconPanel, idx, id ) as boolean` | Sets it. No repaint — the id is not drawn. |
 | `PsIconPanel_GetItemData( hIconPanel, idx ) as integer` | The free-form host payload, or 0 for an invalid index. |
@@ -453,8 +485,43 @@ placement is impossible before then.
 | `PsIconPanel_ClearItemForeColor( hIconPanel, idx ) as boolean` | Drops the override; the item goes back to the panel's `ForeColor`. Repaints that item. |
 | `PsIconPanel_GetFont( hIconPanel ) as HFONT` | The glyph font handle, or 0. |
 | `PsIconPanel_SetFont( hIconPanel, hIconFont ) as boolean` | Stores the handle and repaints the whole control. **The caller owns the font** and must keep it alive and destroy it. Does **not** re-lay-out: the font is a paint-time input only. FALSE for an invalid handle. |
-| `PsIconPanel_GetTooltipHandle( hIconPanel ) as HWND` | The panel's tooltip window, or 0 — for `TTM_*` messages when you want to restyle or reposition tips. The control owns it and destroys it. |
-| `PsIconPanel_SetHoverTime( hIconPanel, milliseconds )` | How long the cursor must rest before a tip appears. Default 250 ms (Win32's own default is 500). Takes effect on the next mouse move over the control. |
+| `PsIconPanel_GetTooltipHandle( hIconPanel ) as HWND` | The **comctl32** tooltip window, for any `TTM_*` message you want to send it yourself. The control owns it and destroys it. Returns **0** while this panel is on the PsTooltip backend — the honest answer, since a `TTM_*` sent to a PsTooltip window is silently ignored. |
+| `PsIconPanel_GetPsTooltipHandle( hIconPanel ) as HWND` | The **PsTooltip** window, or 0 while on the system backend. The door to `PsTooltip_SetColors` / `SetFonts` / `SetStyle` / `SetMaxWidth` / `SetTitle` / `SetGlyph` — none of which is mirrored here. |
+| `PsIconPanel_SetTooltipMode( hIconPanel, nMode ) as boolean` | `PSTIP_MODE_SYSTEM` (default) or `PSTIP_MODE_PS`. Destroys the outgoing tip, builds the incoming one and re-applies the stored delays. A no-op when that mode is already live. FALSE for an invalid handle. See below. |
+| `PsIconPanel_GetTooltipMode( hIconPanel ) as long` | Which backend is live. |
+| `PsIconPanel_SetHoverTime( hIconPanel, milliseconds )` | Initial delay (`TTDT_INITIAL`) — how long the cursor must rest before a tip appears. Default 250 ms (Win32's own default is 500). Honoured by **both** backends. **Double duty:** the same value is `TrackMouseEvent`'s `dwHoverTime`, so this also sets the hot-tracking dwell. Takes effect on the next mouse move over the control. |
+| `PsIconPanel_SetAutoPopTime( hIconPanel, milliseconds )` | How long the tip stays up (`TTDT_AUTOPOP`). Honoured by both backends. |
+| `PsIconPanel_SetReshowTime( hIconPanel, milliseconds )` | The shorter delay after a tip was recently dismissed (`TTDT_RESHOW`). Honoured by both backends. |
+
+#### Tooltips: two backends
+
+The panel ships on the **system** (comctl32) tooltip it has always used. `PSTIP_MODE_PS` switches
+this instance to **PsTooltip**: owner-drawn, themeable, word-wrapping without a hand-sent
+`TTM_SETMAXTIPWIDTH`, and — the one that matters structurally — **not a subclass of the control
+it serves**, so it still works when the window under the cursor is a descendant rather than the
+control itself. Either way the panel adds **no pump obligation**: PsTooltip has no
+`FilterMessage`, so the "there is no pump obligation" rule above holds on both backends.
+
+The default is deliberate, not caution. PsTooltip's colour defaults are **dark**, so a control
+that switched itself would put a dark tip on a light form. Theme every tip in the process with
+`PsTooltip_SetDefaultColors` and friends, then opt in per instance.
+
+**The mode changes how a tip is drawn, never what it says.** Both backends resolve an item's text
+through the same rule — the item's own text first, then `TooltipCallback`, then nothing.
+
+A delay you set is **stored as well as pushed**, so it survives a switch in either direction. A
+delay you never set keeps the backend's own derivation from the system double-click time, which is
+what makes a tip appear on the same beat as every other tip on the machine.
+
+```freebasic
+PsTooltip_SetDefaultColors( @myTipColors )     ' once, at startup, for every tip in the process
+PsTooltip_SetDefaultFonts( ghFontUI )
+
+PsIconPanel_SetTooltipMode( hPanel, PSTIP_MODE_PS )
+PsIconPanel_SetHoverTime( hPanel, 400 )
+dim as HWND hTip = PsIconPanel_GetPsTooltipHandle( hPanel )
+if hTip then PsTooltip_SetMaxWidth( hTip, 260 )   ' not reachable on the system backend
+```
 
 To change one colour, read-modify-write:
 
@@ -523,7 +590,8 @@ all keep the panel's colours, which is why a hover always looks the same whereve
 | Part | Shape |
 |---|---|
 | Item cell | The full cell rect — padding included, spanning the full client height — filled with the resolved back colour. |
-| Glyph | The item's text in the resolved fore colour, in the font you supplied, centred horizontally and vertically inside `rcIcon`. Skipped when the glyph is empty. |
+| Icon | An item carrying a loaded image draws it into `rcIcon`, aspect preserved and centred, **instead of** the glyph. |
+| Glyph | The item's text in the resolved fore colour, in the font you supplied, centred horizontally and vertically inside `rcIcon`. Skipped when the glyph is empty or an image took its place. |
 | Separator | Its cell filled with `BackColor`, then `rcIcon` filled with `SeparatorColor` — a rule as wide as the separator width and as tall as an icon. |
 
 All of it goes through `PsBufferPaint`: one double buffer, one paint, per repaint. Only the items
@@ -596,6 +664,7 @@ renderer that wants the panel background under an item can simply leave that are
 | `isPressed` | A live left press is on this item **and** the cursor is still over it |
 | `isEnabled` | The item's enabled state |
 | `wszGlyph` | The item's glyph |
+| `pImage` | The item's resolved `CGpImage ptr`, or NULL. When set, draw it with `p->b->PaintImage( p->pImage, @p->rcIcon, PS_IMGFIT_ASPECT )` **instead of** the glyph — a custom painter should honour it, image first |
 
 Two contracts worth honouring:
 
