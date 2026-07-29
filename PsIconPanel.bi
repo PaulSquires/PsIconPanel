@@ -5,6 +5,9 @@
 ' An item can show a real image file (.ico/.png/.bmp/.jpg) instead of a Fluent glyph.
 ' PsImage owns the decode; PsBufferPaint.PaintImage draws it. See PsIconPanel_SetImage.
 #include once "PsImage.bi"
+' The tooltip backend switch. The control ships on the SYSTEM (comctl32) backend exactly
+' as it always has; a host opts an instance into PsTooltip with PsIconPanel_SetTooltipMode.
+#include once "PsTipHost.bi"
 
 ' Polling timer that guarantees hot-tracking is cleared when the mouse leaves the
 ' control. WM_MOUSELEAVE (TME_LEAVE) is not reliably delivered on fast exits, so a
@@ -181,7 +184,10 @@ type IP_SelChangeCallbackSub as sub( byval hIconPanel as HWND, byval idx as long
 
 type PSICONPANEL
     hWin              as HWND
-    hToolTip          as HWND
+    ' The tooltip, whichever backend it is on. Replaces the old hToolTip + HoverTime
+    ' pair; PsIconPanel_GetTooltipHandle still answers the comctl32 handle, and 0 while
+    ' this instance is on PsTooltip.
+    tip         as PSTIPHOST
     wszTooltip        as DWSTRING
     items(any)        as PSICONPANEL_ITEM
     itemCount         as long = 0
@@ -571,6 +577,16 @@ declare function PsIconPanel_GetFont( byval hIconPanel as HWND ) as HFONT
 declare function PsIconPanel_SetFont( byval hIconPanel as HWND, byval hIconFont as HFONT ) as boolean
 declare function PsIconPanel_GetTooltipHandle( byval hIconPanel as HWND ) as HWND
 declare sub      PsIconPanel_SetHoverTime( byval hIconPanel as HWND, byval milliseconds as long )
+declare function PsIconPanel_SetTooltipMode( byval hIconPanel as HWND, byval nMode as long ) as boolean
+declare function PsIconPanel_GetTooltipMode( byval hIconPanel as HWND ) as long
+' The PsTooltip window, or 0 on the system backend. The door to PsTooltip's own
+' SetColors/SetFonts/SetStyle/SetMaxWidth/SetTitle/SetGlyph -- deliberately not mirrored
+' here, since thirteen controls x twenty setters is 260 wrappers to keep in step.
+declare function PsIconPanel_GetPsTooltipHandle( byval hIconPanel as HWND ) as HWND
+' Honoured by BOTH backends. A delay never set keeps the backend's own derivation from
+' the system double-click time.
+declare sub      PsIconPanel_SetAutoPopTime( byval hIconPanel as HWND, byval milliseconds as long )
+declare sub      PsIconPanel_SetReshowTime( byval hIconPanel as HWND, byval milliseconds as long )
 
 ' ----------------------------------------------------------------------------------------
 ' Tooltips.  Per-item text wins; the callback is consulted only for items with none; an
