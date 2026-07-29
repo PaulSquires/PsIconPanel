@@ -516,7 +516,9 @@ declare function PsIconPanel_GetItemKind( byval hIconPanel as HWND, byval idx as
 declare function PsIconPanel_GetGlyph( byval hIconPanel as HWND, byval idx as long ) as DWSTRING
 declare function PsIconPanel_SetGlyph( byval hIconPanel as HWND, byval idx as long, byval Glyph as DWSTRING ) as boolean
 ' Load an image file (.ico/.png/.bmp/.jpg) into an item's cell, replacing its glyph. "" removes
-' it. Returns TRUE on a successful load. The image fits the item's existing icon cell.
+' whatever image is there. Returns TRUE when the item ends up as you asked -- a successful load,
+' OR a successful removal -- and FALSE only for a bad index or a file that would not decode.
+' The image fits the item's existing icon cell.
 declare function PsIconPanel_SetImage( byval hIconPanel as HWND, byval idx as long, byval Path as DWSTRING ) as boolean
 declare function PsIconPanel_GetItemID( byval hIconPanel as HWND, byval idx as long ) as long
 declare function PsIconPanel_SetItemID( byval hIconPanel as HWND, byval idx as long, byval id as long ) as boolean

@@ -191,9 +191,11 @@ function PsIconPanel_SetImage( byval hIconPanel as HWND, byval idx as long, byva
     dim as PSICONPANEL_ITEM ptr pit = pIcon->GetItem(idx)
 
     if len( Path ) = 0 then
+        ' Removal SUCCEEDS. It used to return FALSE, which a caller could not tell apart from
+        ' a load that failed -- so "did that do what I asked" had no answer on this path.
         if pit->pImage then delete pit->pImage : pit->pImage = 0
         PsIconPanel_InvalidateItem( pIcon, idx )
-        return false
+        return true
     end if
 
     if pit->pImage = 0 then pit->pImage = new PsImage
