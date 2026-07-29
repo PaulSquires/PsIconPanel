@@ -543,6 +543,8 @@ end function
 ' ========================================================================================
 ' Retrieve the handle of the panel's tooltip control.
 ' ========================================================================================
+' The comctl32 handle, and 0 while on PsTooltip -- the honest answer, since a TTM_* sent
+' to a PsTooltip window is silently ignored.
 function PsIconPanel_GetTooltipHandle( byval hIconPanel as HWND ) as HWND
     dim as PSICONPANEL ptr pIcon = GetIconPanelPointer(hIconPanel)
     if pIcon = null then return 0
@@ -550,11 +552,9 @@ function PsIconPanel_GetTooltipHandle( byval hIconPanel as HWND ) as HWND
 end function
 
 
-' ========================================================================================
-' Set the tooltip hovertime for the custom icon panel control.
-' ========================================================================================
-' The comctl32 handle, and 0 while on PsTooltip -- the honest answer, since a TTM_* sent
-' to a PsTooltip window is silently ignored.
+' The PsTooltip window, and 0 while on the system backend. This is the door to PsTooltip's
+' own SetColors/SetFonts/SetStyle/SetMaxWidth/SetTitle/SetGlyph, none of which is mirrored
+' on this control.
 function PsIconPanel_GetPsTooltipHandle( byval hIconPanel as HWND ) as HWND
     dim as PSICONPANEL ptr pIcon = GetIconPanelPointer(hIconPanel)
     if pIcon = 0 then return 0
