@@ -20,3 +20,7 @@ REFACTOR_PLAN*.md
 
 # demo scratch image
 sample_icon.png
+
+# Microsoft's icon font, required by the demo at run time but NOT ours to
+# redistribute. Copy it in locally -- see the README.
+SegoeFluentIcons.ttf
